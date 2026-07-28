@@ -39,6 +39,22 @@ class WorldBankResult:
     indicator_name: str
     points: tuple[WorldBankDataPoint, ...]
 
+    @property
+    def latest(self) -> WorldBankDataPoint | None:
+        """Most recent data point (points are stored newest-first by the API)."""
+        # Skip leading points whose value is None (not-yet-published years).
+        for p in self.points:
+            if p.value is not None:
+                return p
+        return None
+
+    def latest_for_country(self, country_code: str) -> WorldBankDataPoint | None:
+        """Most recent non-null point for a specific country."""
+        for p in self.points:
+            if p.country_code == country_code and p.value is not None:
+                return p
+        return None
+
 
 class WorldBankProvider(SignalProvider):
     provider_id = "worldbank"

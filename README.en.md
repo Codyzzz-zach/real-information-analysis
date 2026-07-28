@@ -37,18 +37,21 @@ If there's a market pricing an outcome, Digital Oracle can give you a probabilit
 |----------|-----------|---------|
 | Polymarket | Prediction market contracts | Event probability pricing |
 | Kalshi | SEC-regulated binary contracts | US political/economic events |
-| Stooq | Stocks/ETFs/FX/Commodities | Price history and trends |
+| Yahoo Finance (Price) | Stocks/ETFs/FX/Commodities | Price history and trends |
+| Stooq | Stocks/ETFs/FX/Commodities (CSV) | European equities / independent price source |
 | Deribit | Crypto derivatives | Futures term structure, options IV |
 | US Treasury | Treasury yields | Yield curves, inflation expectations |
+| FRED | Federal Reserve economic data | VIX, OAS, TED, CPI, GDP structured time series (free key) |
 | CFTC COT | Futures positioning | Institutional direction (smart money) |
 | CoinGecko | Crypto spot | BTC/ETH price, market cap |
 | SEC EDGAR | Insider trades | Form 4 buy/sell signals |
 | BIS | Central bank data | Policy rates, credit-to-GDP gaps |
 | World Bank | Development indicators | GDP, population, trade |
-| Yahoo Finance | US options chains | IV, Greeks, put/call ratio |
-| Web Search | Web search | VIX, CDS, and other supplementary data |
+| Yahoo Finance (Options) | US options chains | IV, Greeks, put/call ratio, max pain |
+| Fear & Greed | Market sentiment | CNN 7-signal composite → 0-100 sentiment score |
+| Web Search | Web search | CDS, BDI, and other supplementary data |
 
-All APIs are free and require no API keys.
+All 15 data sources are pure Python stdlib with zero external dependencies. FRED needs a free API key; the rest need no key.
 
 ## Installation
 
@@ -69,11 +72,7 @@ The agent will clone the repo, read the methodology, and call the providers on i
 ### Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) — Python package manager, used to run skill scripts at runtime
-- 11 out of 12 data sources have zero external dependencies (pure Python stdlib). Options chain analysis requires an extra install:
-
-```bash
-uv pip install yfinance
-```
+- All 13 data sources have zero external dependencies (pure Python stdlib). FredProvider needs a free FRED API key ([register](https://fredaccount.stlouisfed.org/apikeys)).
 
 ## How It Works
 

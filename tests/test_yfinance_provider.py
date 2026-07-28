@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import math
 import unittest
+from datetime import date, timedelta
 from typing import Any
+from unittest.mock import patch
 
 from digital_oracle.providers.yfinance_provider import (
     OptionContract,
@@ -21,12 +23,32 @@ from digital_oracle.providers.yfinance_provider import (
 
 
 # ---------------------------------------------------------------------------
+# Dynamic expiration dates — always in the future so Greeks (T > 0) stay valid.
+# Hardcoded past dates silently broke Greeks tests once the date elapsed.
+# ---------------------------------------------------------------------------
+
+def _future_date(days: int) -> str:
+    return (date.today() + timedelta(days=days)).strftime("%Y-%m-%d")
+
+# Primary expiration ~60 days out; two further expirations for "nearest" tests.
+EXPIRATION = _future_date(60)
+EXPIRATION_2 = _future_date(90)
+EXPIRATION_3 = _future_date(120)
+
+
+def _contract_symbol(strike: float, kind: str) -> str:
+    """Build an OCC-style symbol consistent with EXPIRATION (YYMMDD)."""
+    yymmdd = EXPIRATION[2:10].replace("-", "")
+    return f"AAPL{yymmdd}{kind}{int(strike * 1000):08d}"
+
+
+# ---------------------------------------------------------------------------
 # Fake fetcher for testing (no yfinance / pandas needed)
 # ---------------------------------------------------------------------------
 
 _FAKE_CALLS = [
     {
-        "contractSymbol": "AAPL260417C00130000",
+        "contractSymbol": _contract_symbol(130.0, "C"),
         "strike": 130.0,
         "lastPrice": 22.50,
         "bid": 22.00,
@@ -37,7 +59,7 @@ _FAKE_CALLS = [
         "inTheMoney": True,
     },
     {
-        "contractSymbol": "AAPL260417C00140000",
+        "contractSymbol": _contract_symbol(140.0, "C"),
         "strike": 140.0,
         "lastPrice": 13.20,
         "bid": 13.00,
@@ -48,7 +70,7 @@ _FAKE_CALLS = [
         "inTheMoney": True,
     },
     {
-        "contractSymbol": "AAPL260417C00150000",
+        "contractSymbol": _contract_symbol(150.0, "C"),
         "strike": 150.0,
         "lastPrice": 5.20,
         "bid": 5.00,
@@ -59,7 +81,7 @@ _FAKE_CALLS = [
         "inTheMoney": False,
     },
     {
-        "contractSymbol": "AAPL260417C00160000",
+        "contractSymbol": _contract_symbol(160.0, "C"),
         "strike": 160.0,
         "lastPrice": 1.80,
         "bid": 1.60,
@@ -70,7 +92,7 @@ _FAKE_CALLS = [
         "inTheMoney": False,
     },
     {
-        "contractSymbol": "AAPL260417C00170000",
+        "contractSymbol": _contract_symbol(170.0, "C"),
         "strike": 170.0,
         "lastPrice": 0.45,
         "bid": 0.30,
@@ -84,7 +106,7 @@ _FAKE_CALLS = [
 
 _FAKE_PUTS = [
     {
-        "contractSymbol": "AAPL260417P00130000",
+        "contractSymbol": _contract_symbol(130.0, "P"),
         "strike": 130.0,
         "lastPrice": 0.30,
         "bid": 0.20,
@@ -95,7 +117,7 @@ _FAKE_PUTS = [
         "inTheMoney": False,
     },
     {
-        "contractSymbol": "AAPL260417P00140000",
+        "contractSymbol": _contract_symbol(140.0, "P"),
         "strike": 140.0,
         "lastPrice": 1.10,
         "bid": 1.00,
@@ -106,7 +128,7 @@ _FAKE_PUTS = [
         "inTheMoney": False,
     },
     {
-        "contractSymbol": "AAPL260417P00150000",
+        "contractSymbol": _contract_symbol(150.0, "P"),
         "strike": 150.0,
         "lastPrice": 3.40,
         "bid": 3.20,
@@ -117,7 +139,7 @@ _FAKE_PUTS = [
         "inTheMoney": True,
     },
     {
-        "contractSymbol": "AAPL260417P00160000",
+        "contractSymbol": _contract_symbol(160.0, "P"),
         "strike": 160.0,
         "lastPrice": 9.50,
         "bid": 9.20,
@@ -128,7 +150,7 @@ _FAKE_PUTS = [
         "inTheMoney": True,
     },
     {
-        "contractSymbol": "AAPL260417P00170000",
+        "contractSymbol": _contract_symbol(170.0, "P"),
         "strike": 170.0,
         "lastPrice": 19.00,
         "bid": 18.50,
@@ -147,7 +169,7 @@ class FakeOptionsFetcher:
     def __init__(
         self,
         *,
-        expirations: tuple[str, ...] = ("2026-04-17", "2026-05-15", "2026-06-19"),
+        expirations: tuple[str, ...] = (EXPIRATION, EXPIRATION_2, EXPIRATION_3),
         underlying_price: float | None = 150.0,
         calls: list[dict[str, Any]] | None = None,
         puts: list[dict[str, Any]] | None = None,
@@ -295,24 +317,24 @@ class YFinanceProviderTests(unittest.TestCase):
     def test_get_expirations(self) -> None:
         result = self.provider.get_expirations("aapl")
         self.assertEqual(result.ticker, "AAPL")
-        self.assertEqual(result.expirations, ("2026-04-17", "2026-05-15", "2026-06-19"))
+        self.assertEqual(result.expirations, (EXPIRATION, EXPIRATION_2, EXPIRATION_3))
 
     def test_get_chain_parses_all_contracts(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertEqual(chain.ticker, "AAPL")
-        self.assertEqual(chain.expiration, "2026-04-17")
+        self.assertEqual(chain.expiration, EXPIRATION)
         self.assertEqual(len(chain.calls), 5)
         self.assertEqual(len(chain.puts), 5)
         self.assertEqual(chain.underlying_price, 150.0)
 
     def test_contract_fields_parsed(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         c = chain.calls[0]
-        self.assertEqual(c.contract_symbol, "AAPL260417C00130000")
+        self.assertEqual(c.contract_symbol, _contract_symbol(130.0, "C"))
         self.assertEqual(c.option_type, "call")
         self.assertEqual(c.strike, 130.0)
         self.assertEqual(c.last_price, 22.50)
@@ -328,11 +350,11 @@ class YFinanceProviderTests(unittest.TestCase):
         chain = self.provider.get_chain(
             OptionsChainQuery(ticker="AAPL", compute_greeks=False)
         )
-        self.assertEqual(chain.expiration, "2026-04-17")
+        self.assertEqual(chain.expiration, EXPIRATION)
 
     def test_greeks_computed_when_enabled(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=True)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=True)
         )
         # All contracts should have Greeks (they all have IV)
         for c in chain.calls:
@@ -342,7 +364,7 @@ class YFinanceProviderTests(unittest.TestCase):
 
     def test_greeks_skipped_when_disabled(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         for c in chain.calls:
             self.assertIsNone(c.greeks)
@@ -353,7 +375,7 @@ class YFinanceProviderTests(unittest.TestCase):
         self.fake.calls = [{"strike": 150.0, "contractSymbol": "X", "impliedVolatility": None}]
         self.fake.puts = []
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=True)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=True)
         )
         self.assertEqual(len(chain.calls), 1)
         self.assertIsNone(chain.calls[0].greeks)
@@ -361,14 +383,14 @@ class YFinanceProviderTests(unittest.TestCase):
     def test_greeks_none_when_underlying_missing(self) -> None:
         self.fake.underlying_price = None
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=True)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=True)
         )
         for c in chain.calls:
             self.assertIsNone(c.greeks)
 
     def test_call_delta_positive_put_delta_negative(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17")
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION)
         )
         for c in chain.calls:
             if c.greeks:
@@ -379,7 +401,7 @@ class YFinanceProviderTests(unittest.TestCase):
 
     def test_ticker_normalised_to_uppercase(self) -> None:
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="aapl", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="aapl", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertEqual(chain.ticker, "AAPL")
 
@@ -404,7 +426,7 @@ class YFinanceProviderTests(unittest.TestCase):
         ]
         self.fake.puts = []
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         c = chain.calls[0]
         self.assertIsNone(c.volume)
@@ -418,7 +440,7 @@ class YFinanceProviderTests(unittest.TestCase):
         self.fake.calls = [{"contractSymbol": "X"}, {"contractSymbol": "Y", "strike": 150.0}]
         self.fake.puts = []
         chain = self.provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertEqual(len(chain.calls), 1)
         self.assertEqual(chain.calls[0].strike, 150.0)
@@ -441,7 +463,7 @@ class OptionsChainHelpersTests(unittest.TestCase):
         fake = FakeOptionsFetcher()
         provider = YFinanceProvider(fetcher=fake)
         self.chain = provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
 
     def test_atm_strike(self) -> None:
@@ -509,24 +531,24 @@ class OptionsChainHelpersTests(unittest.TestCase):
 
     def test_atm_strike_none_when_no_underlying(self) -> None:
         chain = OptionsChain(
-            ticker="X", expiration="2026-04-17", underlying_price=None, calls=(), puts=()
+            ticker="X", expiration=EXPIRATION, underlying_price=None, calls=(), puts=()
         )
         self.assertIsNone(chain.atm_strike)
 
     def test_put_call_volume_ratio_none_when_zero_call_volume(self) -> None:
         chain = OptionsChain(
             ticker="X",
-            expiration="2026-04-17",
+            expiration=EXPIRATION,
             underlying_price=100.0,
             calls=(
                 OptionContract(
-                    contract_symbol="X", option_type="call", expiration="2026-04-17",
+                    contract_symbol="X", option_type="call", expiration=EXPIRATION,
                     strike=100.0, volume=0,
                 ),
             ),
             puts=(
                 OptionContract(
-                    contract_symbol="Y", option_type="put", expiration="2026-04-17",
+                    contract_symbol="Y", option_type="put", expiration=EXPIRATION,
                     strike=100.0, volume=500,
                 ),
             ),
@@ -535,13 +557,13 @@ class OptionsChainHelpersTests(unittest.TestCase):
 
     def test_max_pain_none_when_empty(self) -> None:
         chain = OptionsChain(
-            ticker="X", expiration="2026-04-17", underlying_price=100.0, calls=(), puts=()
+            ticker="X", expiration=EXPIRATION, underlying_price=100.0, calls=(), puts=()
         )
         self.assertIsNone(chain.max_pain())
 
     def test_implied_move_none_when_missing_data(self) -> None:
         chain = OptionsChain(
-            ticker="X", expiration="2026-04-17", underlying_price=None, calls=(), puts=()
+            ticker="X", expiration=EXPIRATION, underlying_price=None, calls=(), puts=()
         )
         self.assertIsNone(chain.implied_move())
 
@@ -556,7 +578,7 @@ class EdgeCaseTests(unittest.TestCase):
         fake = FakeOptionsFetcher(calls=[], puts=[])
         provider = YFinanceProvider(fetcher=fake)
         chain = provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertEqual(len(chain.calls), 0)
         self.assertEqual(len(chain.puts), 0)
@@ -570,7 +592,7 @@ class EdgeCaseTests(unittest.TestCase):
         )
         provider = YFinanceProvider(fetcher=fake)
         chain = provider.get_chain(
-            OptionsChainQuery(ticker="TEST", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="TEST", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertAlmostEqual(chain.calls[0].mid, 2.5)
 
@@ -581,7 +603,7 @@ class EdgeCaseTests(unittest.TestCase):
         )
         provider = YFinanceProvider(fetcher=fake)
         chain = provider.get_chain(
-            OptionsChainQuery(ticker="TEST", expiration="2026-04-17", compute_greeks=False)
+            OptionsChainQuery(ticker="TEST", expiration=EXPIRATION, compute_greeks=False)
         )
         self.assertIsNone(chain.calls[0].mid)
 
@@ -591,10 +613,10 @@ class EdgeCaseTests(unittest.TestCase):
         provider = YFinanceProvider(fetcher=fake)
 
         chain1 = provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", risk_free_rate=0.01)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, risk_free_rate=0.01)
         )
         chain2 = provider.get_chain(
-            OptionsChainQuery(ticker="AAPL", expiration="2026-04-17", risk_free_rate=0.10)
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, risk_free_rate=0.10)
         )
         # ATM call delta should differ between the two rates
         g1 = chain1.calls[2].greeks  # 150 strike
@@ -603,6 +625,160 @@ class EdgeCaseTests(unittest.TestCase):
         self.assertIsNotNone(g2)
         assert g1 is not None and g2 is not None
         self.assertNotAlmostEqual(g1.delta, g2.delta, places=3)
+
+
+# ---------------------------------------------------------------------------
+# _DirectYahooOptionsFetcher — crumb handshake + v7 parsing (no network)
+# ---------------------------------------------------------------------------
+
+from digital_oracle.providers.base import ProviderError
+from digital_oracle.providers.yfinance_provider import _DirectYahooOptionsFetcher
+
+
+def _fake_v7_payload(exp_ts: int = 1785110400, price: float = 150.0) -> dict[str, Any]:
+    """A minimal but realistic v7 options response."""
+    return {
+        "optionChain": {
+            "result": [
+                {
+                    "expirationDates": [exp_ts],
+                    "quote": {"regularMarketPrice": price},
+                    "options": [
+                        {
+                            "calls": [
+                                {
+                                    "contractSymbol": "AAPL260727C00150000",
+                                    "strike": 150.0,
+                                    "lastPrice": 5.2,
+                                    "bid": 5.0,
+                                    "ask": 5.4,
+                                    "volume": 3000,
+                                    "openInterest": 8000,
+                                    "impliedVolatility": 0.25,
+                                    "inTheMoney": False,
+                                }
+                            ],
+                            "puts": [
+                                {
+                                    "contractSymbol": "AAPL260727P00150000",
+                                    "strike": 150.0,
+                                    "lastPrice": 3.4,
+                                    "bid": 3.2,
+                                    "ask": 3.6,
+                                    "volume": 2500,
+                                    "openInterest": 7000,
+                                    "impliedVolatility": 0.26,
+                                    "inTheMoney": False,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "error": None,
+        }
+    }
+
+
+class _FakeHttp:
+    """Stand-in for opener.open — returns canned bytes per URL pattern.
+
+    The crumb endpoint returns the crumb string; any v7 options URL returns
+    the provided JSON payload; fc.yahoo.com returns empty (404-like).
+    """
+
+    def __init__(self, payload: dict[str, Any], crumb: str = "CRUMB123") -> None:
+        self.payload = payload
+        self.crumb = crumb
+        self.calls: list[str] = []
+
+    def __call__(self, url: str, timeout: float | None = None) -> "_FakeResp":
+        self.calls.append(url)
+        if "getcrumb" in url:
+            return _FakeResp(self.crumb.encode("utf-8"))
+        if "fc.yahoo.com" in url:
+            return _FakeResp(b"")
+        # v7 options endpoint
+        import json as _json
+
+        return _FakeResp(_json.dumps(self.payload).encode("utf-8"))
+
+
+class _FakeResp:
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self) -> "_FakeResp":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+
+class DirectYahooOptionsFetcherTests(unittest.TestCase):
+    def test_crumb_initialised_once_and_reused(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        fake = _FakeHttp(_fake_v7_payload(), crumb="UNIQUE_CRUMB")
+        with patch.object(fetcher._opener, "open", side_effect=fake):
+            fetcher.fetch_expirations("AAPL")
+            fetcher.fetch_underlying_price("AAPL")
+
+        # crumb endpoint hit exactly once across both calls
+        crumb_calls = [u for u in fake.calls if "getcrumb" in u]
+        self.assertEqual(len(crumb_calls), 1)
+        self.assertEqual(fetcher._crumb, "UNIQUE_CRUMB")
+
+    def test_fetch_expirations_converts_unix_ts_to_date(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        # 1785110400 = 2026-07-27 UTC
+        with patch.object(
+            fetcher._opener, "open", side_effect=_FakeHttp(_fake_v7_payload(1785110400))
+        ):
+            exps = fetcher.fetch_expirations("AAPL")
+        self.assertEqual(exps, ("2026-07-27",))
+
+    def test_fetch_chain_parses_contracts(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        with patch.object(
+            fetcher._opener, "open", side_effect=_FakeHttp(_fake_v7_payload(1785110400))
+        ):
+            rows = fetcher.fetch_chain("AAPL", "2026-07-27")
+        self.assertEqual(len(rows.calls), 1)
+        self.assertEqual(len(rows.puts), 1)
+        self.assertAlmostEqual(rows.calls[0]["impliedVolatility"], 0.25)
+        self.assertEqual(rows.calls[0]["contractSymbol"], "AAPL260727C00150000")
+
+    def test_fetch_underlying_price(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        with patch.object(
+            fetcher._opener, "open", side_effect=_FakeHttp(_fake_v7_payload(price=333.02))
+        ):
+            price = fetcher.fetch_underlying_price("AAPL")
+        self.assertAlmostEqual(price, 333.02)
+
+    def test_no_result_raises_provider_error(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        bad = {"optionChain": {"result": [], "error": {"description": "Invalid ticker"}}}
+        with patch.object(fetcher._opener, "open", side_effect=_FakeHttp(bad)):
+            with self.assertRaises(ProviderError):
+                fetcher.fetch_expirations("BOGUS")
+
+    def test_chain_with_unlisted_expiration_raises(self) -> None:
+        fetcher = _DirectYahooOptionsFetcher()
+        with patch.object(
+            fetcher._opener, "open", side_effect=_FakeHttp(_fake_v7_payload(1785110400))
+        ):
+            with self.assertRaises(ProviderError):
+                fetcher.fetch_chain("AAPL", "2099-01-01")
+
+    def test_uses_short_user_agent(self) -> None:
+        """Full-browser UAs get 429'd by Yahoo; the fetcher must use a minimal UA."""
+        fetcher = _DirectYahooOptionsFetcher()
+        ua_headers = [v for (k, v) in fetcher._opener.addheaders if k == "User-Agent"]
+        self.assertEqual(ua_headers, ["Mozilla/5.0"])
 
 
 if __name__ == "__main__":

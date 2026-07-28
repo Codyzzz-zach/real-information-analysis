@@ -1,32 +1,39 @@
 """Yahoo Finance price history provider.
 
-Requires ``yfinance``: ``pip install yfinance``
+Fetches OHLCV price history directly from Yahoo Finance's public chart API
+(``query1.finance.yahoo.com/v8/finance/chart``) using only the Python
+standard library — no ``yfinance`` dependency.
 
-Replaces the Stooq provider with Yahoo Finance as the data source for
-OHLCV price history.  Supports stocks, ETFs, futures, forex and indices.
+The chart API tolerates unauthenticated requests, so unlike the options
+chain endpoint it needs no cookie/crumb handshake.  Supports stocks, ETFs,
+futures (``GC=F``), forex (``EURUSD=X``) and indices.
 """
 
 from __future__ import annotations
 
-import importlib
+import json
 import math
-import os
-import sys
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from http.client import HTTPException as _HttpConnError
 from typing import Any, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from .base import ProviderError, ProviderParseError, SignalProvider
 from .prices import PriceBar, PriceHistory, PriceHistoryQuery
 
-# Map PriceHistoryQuery interval codes to yfinance interval strings
+# Map PriceHistoryQuery interval codes to Yahoo chart API interval strings
 _INTERVAL_MAP = {"d": "1d", "w": "1wk", "m": "1mo"}
 
 
 def _limit_to_period(limit: int | None, interval: str) -> str:
-    """Convert a bar *limit* into a yfinance ``period`` string.
+    """Convert a bar *limit* into a Yahoo chart API ``range`` string.
 
-    yfinance uses period strings like ``"1mo"``, ``"6mo"`` etc. rather than
-    explicit row counts, so we approximate conservatively.
+    Yahoo's chart API uses ``range`` strings like ``"1mo"``, ``"6mo"`` etc.
+    rather than explicit row counts, so we approximate conservatively.
     """
     if limit is None or limit <= 0:
         return "max"
@@ -77,31 +84,26 @@ class PriceFetcher(Protocol):
     ) -> list[dict[str, Any]]: ...
 
 
-class _YFinancePriceFetcher:
-    """Default fetcher backed by the *yfinance* library."""
+class _DirectYahooPriceFetcher:
+    """Default fetcher backed by Yahoo Finance's public chart API.
 
-    def __init__(self) -> None:
-        try:
-            self._yf = importlib.import_module("yfinance")
-            return
-        except ImportError:
-            pass
+    Hits ``query1.finance.yahoo.com/v8/finance/chart`` directly with
+    ``urllib``.  The chart endpoint tolerates unauthenticated requests, so
+    no cookie/crumb handshake is needed (unlike the options endpoint).
+    Returns rows shaped like ``yfinance``'s output (``Date``, ``Open``,
+    ``High``, ``Low``, ``Close``, ``Volume``) so the downstream parsing in
+    :meth:`YahooPriceProvider.get_history` is unchanged.
+    """
 
-        # Fall back to a repo-local .deps install if the global environment
-        # does not have yfinance available.
-        _deps = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, ".deps"
-        )
-        if os.path.isdir(_deps) and _deps not in sys.path:
-            sys.path.insert(0, _deps)
-
-        try:
-            self._yf = importlib.import_module("yfinance")
-        except ImportError:
-            raise ImportError(
-                "yfinance is required for YahooPriceProvider but is not installed.\n"
-                "Install it with:  uv pip install --target .deps yfinance\n"
-            )
+    _BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+    # A short generic UA is deliberately used here: Yahoo's chart API
+    # tolerates it, while realistic full-browser User-Agents (and TLS
+    # fingerprinting libraries like curl_cffi) are flagged and rate
+    # limited (429). Verified empirically — keep this minimal.
+    _USER_AGENT = "Mozilla/5.0"
+    _TIMEOUT = 20.0
+    _RETRIES = 3
+    _RETRY_DELAY = 1.0
 
     def fetch_history(
         self,
@@ -110,19 +112,84 @@ class _YFinancePriceFetcher:
         period: str,
         interval: str,
     ) -> list[dict[str, Any]]:
-        t = self._yf.Ticker(symbol)
-        df = t.history(period=period, interval=interval)
+        params = urlencode({"range": period, "interval": interval})
+        url = f"{self._BASE_URL}/{symbol}?{params}"
+        data = self._get_json(url)
+
+        results = data.get("chart", {}).get("result")
+        if not results:
+            err = data.get("chart", {}).get("error", {})
+            msg = err.get("description") if isinstance(err, dict) else None
+            raise ProviderError(
+                f"Yahoo chart API returned no result for {symbol!r}"
+                + (f": {msg}" if msg else "")
+            )
+
+        result = results[0]
+        timestamps = result.get("timestamp") or []
+        quote = (result.get("indicators", {}).get("quote") or [{}])[0]
+
+        opens = quote.get("open") or []
+        highs = quote.get("high") or []
+        lows = quote.get("low") or []
+        closes = quote.get("close") or []
+        volumes = quote.get("volume") or []
 
         rows: list[dict[str, Any]] = []
-        for idx, row in df.iterrows():
-            d: dict[str, Any] = {"Date": idx}
-            for col in df.columns:
-                val = row[col]
-                if isinstance(val, float) and math.isnan(val):
-                    val = None
-                d[col] = val
-            rows.append(d)
+        for i, ts in enumerate(timestamps):
+            # Skip bars with null OHLC (Yahoo pads with empty slots).
+            o = _array_get(opens, i)
+            h = _array_get(highs, i)
+            low = _array_get(lows, i)
+            c = _array_get(closes, i)
+            if o is None and h is None and low is None and c is None:
+                continue
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+            rows.append(
+                {
+                    "Date": dt,
+                    "Open": o,
+                    "High": h,
+                    "Low": low,
+                    "Close": c,
+                    "Volume": _array_get(volumes, i),
+                }
+            )
         return rows
+
+    def _get_json(self, url: str) -> Any:
+        last_exc: Exception | None = None
+        for attempt in range(1, self._RETRIES + 1):
+            try:
+                req = Request(url, headers={"User-Agent": self._USER_AGENT})
+                with urlopen(req, timeout=self._TIMEOUT) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except HTTPError as exc:
+                # 4xx other than transient 429 is a hard failure — don't retry.
+                if exc.code == 429 and attempt < self._RETRIES:
+                    last_exc = exc
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(f"Yahoo chart API request failed: {url}") from exc
+            except (URLError, TimeoutError, _HttpConnError, json.JSONDecodeError) as exc:
+                last_exc = exc
+                if attempt < self._RETRIES:
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(
+                    f"Yahoo chart API request failed: {url}"
+                ) from exc
+        raise ProviderError(f"Yahoo chart API request failed: {url}") from last_exc
+
+
+def _array_get(arr: list[Any] | None, i: int) -> Any:
+    """Return ``arr[i]`` or ``None`` if out of range / NaN."""
+    if not arr or i >= len(arr):
+        return None
+    val = arr[i]
+    if isinstance(val, float) and math.isnan(val):
+        return None
+    return val
 
 
 # ---------------------------------------------------------------------------
@@ -133,11 +200,10 @@ class _YFinancePriceFetcher:
 class YahooPriceProvider(SignalProvider):
     """Yahoo Finance OHLCV price history provider.
 
-    Drop-in replacement for StooqProvider.  Uses Yahoo Finance symbols
-    (e.g. ``GC=F`` for gold, ``CL=F`` for crude oil, ``SPY`` for S&P 500
-    ETF, ``EURUSD=X`` for EUR/USD forex).
-
-    Requires ``yfinance``: ``pip install yfinance``.
+    Fetches directly from Yahoo Finance's chart API (no ``yfinance``
+    dependency — pure stdlib).  Uses Yahoo Finance symbols (e.g. ``GC=F``
+    for gold, ``CL=F`` for crude oil, ``SPY`` for S&P 500 ETF,
+    ``EURUSD=X`` for EUR/USD forex).
     """
 
     provider_id = "yahoo"
@@ -145,7 +211,7 @@ class YahooPriceProvider(SignalProvider):
     capabilities = ("price_history",)
 
     def __init__(self, *, fetcher: PriceFetcher | None = None) -> None:
-        self._fetcher: PriceFetcher = fetcher or _YFinancePriceFetcher()
+        self._fetcher: PriceFetcher = fetcher or _DirectYahooPriceFetcher()
 
     def get_history(self, query: PriceHistoryQuery) -> PriceHistory:
         interval = query.interval.lower().strip()

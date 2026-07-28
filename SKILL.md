@@ -58,7 +58,7 @@ Based on question type, select from the signal menu below. **Don't use just one 
 - Deribit: BTC futures basis (risk appetite proxy)
 - CoinGecko: Crypto total market cap + BTC dominance (risk appetite proxy)
 - FearGreedProvider: CNN Fear & Greed Index (7 price signals composite → 0-100)
-- CMEFedWatchProvider: Market-implied FOMC rate change probabilities from futures
+- Kalshi KXFED: Market-implied FOMC rate change probabilities (direct binary-contract pricing — one-step market vote, more direct than futures-derived estimates)
 - Polymarket: Recession-related contracts, central bank rate path
 - Currencies: DXY/dollar strength, emerging market currencies
 - FredProvider: VIX (VIXCLS), high-yield OAS (BAMLH0A0HYM2), TED spread (TEDRATE), breakeven inflation (T10YIE) (MOVE index unavailable → use VIX for bond vol)
@@ -69,7 +69,8 @@ Based on question type, select from the signal menu below. **Don't use just one 
 - Find the industry's "single-purpose commodity" (e.g. GPU rental price → AI, rebar → construction)
 - Upstream equipment maker orders/stock price (e.g. ASML → semiconductors)
 - Leader company valuation discount (e.g. TSMC vs peers → Taiwan Strait risk pricing)
-- EDGAR: Industry leader insider trading cadence (Form 4) — concentrated selling = bearish signal
+- EDGAR insider trades: `get_insider_transactions_detail()` — actual buy/sell direction (concentrated selling = bearish)
+- **EDGAR capital trends: `get_capital_trends(tickers=[...], concept="R&D")` — long-term capital already committed (the hardest signal: money already spent). Works across US/Chinese ADR/European ADR filers. Use for ANY industry question (not just AI) — you decide the relevant tickers, no preset themes. Concepts: "R&D" (tech/pharma), "CapEx" (energy/manufacturing), "PP&E" (asset base). Cover the FULL value chain (10-25 companies: chips + foundry + equipment + cloud + apps + China peers), not just 2-3 household names — broader coverage reveals structural patterns (e.g. "23/25 expanding = industry-wide consensus") that a handful of leaders cannot. See [references/capital_tickers.md](references/capital_tickers.md) for a curated starting point by sector (with recommended concept per industry).**
 - CFTC COT: Institutional positioning changes in related commodities
 - CoinGecko: For crypto industry, look at BTC/ETH/altcoin market cap distribution
 - Web search: VC funding concentration, leveraged ETF concentration, margin debt levels
@@ -121,7 +122,7 @@ Use digital-oracle's Python providers to fetch structured data, calling all sour
 from digital_oracle import (
     PolymarketProvider, PolymarketEventQuery,
     KalshiProvider, KalshiMarketQuery,
-    YahooPriceProvider, PriceHistoryQuery,   # requires uv pip install yfinance
+    YahooPriceProvider, PriceHistoryQuery,   # pure stdlib, no install needed
     DeribitProvider, DeribitFuturesCurveQuery,
     USTreasuryProvider, YieldCurveQuery,
     WebSearchProvider,
@@ -130,16 +131,15 @@ from digital_oracle import (
     EdgarProvider, EdgarInsiderQuery,
     BisProvider, BisRateQuery,
     WorldBankProvider, WorldBankQuery,
-    YFinanceProvider, OptionsChainQuery,      # requires uv pip install yfinance
+    YFinanceProvider, OptionsChainQuery,      # pure stdlib, no install needed
     FearGreedProvider,
-    CMEFedWatchProvider,
     FredProvider, FredSeriesQuery,            # requires free API key from fred.stlouisfed.org
     gather,
 )
 
 pm = PolymarketProvider()
 kalshi = KalshiProvider()
-yahoo = YahooPriceProvider()  # requires uv pip install yfinance
+yahoo = YahooPriceProvider()  # pure stdlib
 deribit = DeribitProvider()
 treasury = USTreasuryProvider()
 web = WebSearchProvider()
@@ -148,9 +148,8 @@ coingecko = CoinGeckoProvider()
 edgar = EdgarProvider(user_email="you@example.com")  # SEC requires email in User-Agent, otherwise 403
 bis = BisProvider()
 wb = WorldBankProvider()
-yf = YFinanceProvider()  # requires uv pip install yfinance
+yf = YFinanceProvider()  # pure stdlib
 fear_greed = FearGreedProvider()
-fedwatch = CMEFedWatchProvider()
 fred = FredProvider(api_key="YOUR_FRED_API_KEY")  # free at https://fredaccount.stlouisfed.org/apikeys
 
 result = gather({
@@ -161,8 +160,15 @@ result = gather({
     "gold_cot": lambda: cftc.list_reports(CftcCotQuery(commodity_name="GOLD", limit=4)),
     # Crypto market sentiment
     "crypto": lambda: coingecko.get_prices(CoinGeckoPriceQuery(coin_ids=("bitcoin", "ethereum"))),
-    # Insider trades
-    "insider": lambda: edgar.get_insider_transactions(EdgarInsiderQuery(ticker="AAPL", limit=10)),
+    # Insider trades — use get_insider_transactions_detail for actual buy/sell data
+    # (get_insider_transactions only returns filing metadata, not trade direction)
+    "insider": lambda: edgar.get_insider_transactions_detail(EdgarInsiderQuery(ticker="AAPL", limit=10)),
+    # Long-term capital allocation — cover the FULL value chain (10-25 companies),
+    # not just household names. Broader coverage reveals industry-wide patterns.
+    "capex": lambda: edgar.get_capital_trends(
+        tickers=["NVDA","AMD","INTC","AVGO","TSM","ASML","MSFT","GOOGL","META","AMZN","BABA","BIDU"],
+        concept="R&D", years=3,
+    ),
     # Central bank policy rates
     "rates": lambda: bis.get_policy_rates(BisRateQuery(countries=("US", "CN"), start_year=2023)),
     # GDP data
@@ -175,8 +181,6 @@ result = gather({
     "spy_options": lambda: yf.get_chain(OptionsChainQuery(ticker="SPY", expiration="2026-04-17")),
     # CNN Fear & Greed (composite of 7 price signals)
     "fear_greed": lambda: fear_greed.get_index(),
-    # CME FedWatch (implied rate probabilities from futures)
-    "fedwatch": lambda: fedwatch.get_probabilities(),
     # FRED economic data (replaces web search for VIX/OAS/spreads)
     # Note: MOVE index no longer available in FRED; VIX serves as vol proxy
     "vix": lambda: fred.get_series(FredSeriesQuery(series_id="VIXCLS", limit=30)),
@@ -198,9 +202,48 @@ if chain:
 # World Bank GDP data usage
 gdp = result.get_or("gdp", None)
 if gdp:
-    # gdp.points is tuple[WorldBankDataPoint, ...] — use .points, NOT .observations
-    for p in gdp.points[-3:]:
-        print(f"  {p.country_code} {p.date}: USD {p.value:,.0f}" if p.value else f"  {p.country_code} {p.date}: (pending)")
+    # gdp.points is tuple[WorldBankDataPoint, ...], stored NEWEST-FIRST by the API.
+    # Use .latest (newest non-null) or .latest_for_country("US") — do NOT use
+    # points[-3:] (that returns the OLDEST points, not the newest).
+    for cc in ("US", "CN"):
+        p = gdp.latest_for_country(cc)
+        if p:
+            print(f"  {p.country_code} {p.date}: USD {p.value:,.0f}")
+
+# Insider trade detail usage (get_insider_transactions_detail — NOT get_insider_transactions)
+insider = result.get_or("insider", None)
+if insider:
+    # insider is list[EdgarInsiderTransaction] — actual trades, not filing metadata
+    sales = [t for t in insider if t.is_sale]
+    purchases = [t for t in insider if t.is_purchase]
+    total_sold = sum(t.shares or 0 for t in sales)
+    total_bought = sum(t.shares or 0 for t in purchases)
+    # Heavy selling (sales >> purchases) = insiders bearish on the stock
+    print(f"  Insider: {len(purchases)} buys ({total_bought:,.0f} sh), {len(sales)} sells ({total_sold:,.0f} sh)")
+    for t in insider[:3]:
+        print(f"  {t.reporting_owner}: {t.transaction_label}, {t.shares:,.0f} sh @ ${t.price_per_share or 0:.2f}")
+
+# Capital trends usage (long-term capital allocation — the hardest signal)
+capex = result.get_or("capex", None)
+if capex:
+    # capex is list[CompanyCapitalTrend] — multi-year R&D/CapEx already spent
+    for t in capex:
+        cur = t.currency
+        val = f"${t.latest_value/1e9:.1f}B" if cur == "USD" else f"{t.latest_value/1e9:.1f}B {cur}"
+        yoy = f"{t.yoy_growth_pct:+.0f}%" if t.yoy_growth_pct is not None else "N/A"
+        print(f"  {t.ticker}: FY{t.latest_fiscal_year} {val} ({yoy} YoY, {t.concept})")
+    # Interpretation: positive YoY = expanding commitment; negative = retreating
+    # Compare across companies to see who is doubling down vs pulling back
+
+# CRITICAL — surface missing signals honestly. `gather()` is fault-tolerant:
+# failed tasks land in result.errors, they do NOT raise. You MUST check
+# result.errors and report every missing signal in the final report (Step 6
+# "Data Coverage" section). Never silently skip a failed signal, and never
+# substitute another source's data as if it were the missing one — each
+# market's price is its own independent signal.
+if result.errors:
+    for label, err in result.errors.items():
+        print(f"  [MISSING] {label}: {type(err).__name__}: {err}")
 ```
 
 **All 15 Providers:**
@@ -209,7 +252,7 @@ if gdp:
 |----------|-----------|---------|------------|
 | PolymarketProvider | Prediction market contracts | Event probability pricing | stdlib |
 | KalshiProvider | Binary contracts | US regulated event contracts | stdlib |
-| YahooPriceProvider | Price history | Stocks/ETFs/FX/Commodities | yfinance |
+| YahooPriceProvider | Price history | Stocks/ETFs/FX/Commodities | stdlib |
 | DeribitProvider | Crypto derivatives | Futures term structure, options IV | stdlib |
 | USTreasuryProvider | Treasury yields | Yield curves, inflation expectations | stdlib |
 | **FredProvider** | **FRED economic data** | **VIX, OAS, MOVE, TED spread, CPI, GDP — structured time series** | **stdlib (free API key)** |
@@ -219,11 +262,11 @@ if gdp:
 | EdgarProvider | SEC filings | Insider trades Form 4, filing search | stdlib |
 | BisProvider | Central bank data | Policy rates, credit-to-GDP gap | stdlib |
 | WorldBankProvider | Development indicators | GDP, population, trade, macro data | stdlib |
-| YFinanceProvider | US options chains | IV, Greeks, put/call ratio, max pain | yfinance |
+| YFinanceProvider | US options chains | IV, Greeks, put/call ratio, max pain | stdlib |
 | **FearGreedProvider** | **Market sentiment** | **CNN 7-signal composite → 0-100 score** | **stdlib** |
-| **CMEFedWatchProvider** | **Rate probabilities** | **FOMC rate change implied from futures** | **stdlib** |
+| StooqProvider | Price history (CSV) | European equities / independent price source | stdlib |
 
-> 12 out of 14 providers have zero external dependencies and zero API keys. YahooPriceProvider and YFinanceProvider require `pip install yfinance`.
+> All 15 providers use only the Python standard library — zero external dependencies, zero API keys (FredProvider takes an optional free key).
 
 **WebSearchProvider usage:**
 - `web.search("query")` → returns `WebSearchResult` (search summary) — render with `.text()`
@@ -265,10 +308,20 @@ Four analysis dimensions:
 
 ### Step 6: Output report
 
-**Must follow this structure.** You can adjust the number of layers and wording, but the four main sections (data summary, analysis, probability estimates, conclusion) cannot be omitted or merged into prose paragraphs:
+**Must follow this structure.** You can adjust the number of layers and wording, but the four main sections (data summary, analysis, probability estimates, conclusion) cannot be omitted or merged into prose paragraphs. **Missing signals must be reported explicitly** — a signal that failed to fetch is itself information; never hide it, and lower the confidence of any conclusion that depended on it.
 
 ```markdown
 # [Question Title]: Multi-Signal Synthesis
+
+## Data Coverage
+
+| Planned signal | Status | Note |
+|----------------|--------|------|
+| (every signal selected in Step 2/3) | OK / MISSING | for MISSING: the error + which conclusion dimension it weakens |
+
+(List every signal you intended to fetch. Missing ones must appear here with
+their error and the confidence impact — this is mandatory, not optional. Do
+NOT replace a missing signal with another source's data under the same label.)
 
 ## Data Summary
 
@@ -333,22 +386,22 @@ Four analysis dimensions:
 
 - Polymarket `slug_contains` search is fuzzy — filter results by title keywords after fetching
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
-- YahooPriceProvider requires `yfinance` — install with `uv pip install --target .deps yfinance`
+- YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)
 - Prediction market contracts vary in liquidity — contracts with volume < $100K should be discounted
 - Different signals update at different frequencies: prediction markets real-time, Yahoo Finance daily delayed, Treasury weekly
 - CFTC COT updates Tuesday, published Friday. commodity_name uses uppercase ("GOLD", "CRUDE OIL", "S&P 500")
 - CoinGecko free API has rate limits (~10-30 req/min) — don't pack too many CoinGecko calls in gather
-- EDGAR requires `EdgarProvider(user_email="you@example.com")` — SEC requires email in User-Agent, otherwise 403. First call parses ticker→CIK mapping, slightly slow
+- EDGAR requires `EdgarProvider(user_email="you@example.com")` — SEC requires email in User-Agent, otherwise 403. First call parses ticker→CIK mapping, slightly slow. Use `get_insider_transactions_detail()` (NOT `get_insider_transactions`) for actual buy/sell data — the latter only returns filing metadata without trade direction. `EdgarInsiderTransaction.is_purchase`/`is_sale` flags and `transaction_label` ("Open-market sale" etc.) are ready to use.
 - BIS data updates infrequently (monthly/quarterly) — suitable for long-term trends, not short-term trading
 - World Bank GDP data typically lags 1-2 years — latest year may return `None`
-- YFinance requires `uv pip install yfinance` (auto-installs pandas). After-hours IV may be inaccurate (bid/ask = 0) — use during market hours
-- YFinance `get_chain()` auto-computes Black-Scholes Greeks (pure stdlib `math.erf`, no scipy needed)
+- YFinanceProvider fetches options directly from Yahoo's v7 endpoint (pure stdlib, manages the cookie/crumb handshake internally). After-hours IV may be inaccurate (bid/ask = 0) — use during market hours
+- YFinanceProvider `get_chain()` auto-computes Black-Scholes Greeks (pure stdlib `math.erf`, no scipy needed)
 - Absolute value of put delta ≈ probability of that strike being ITM at expiration (rough estimate)
 - Put/Call ratio > 1.5 is typically bearish, but as a contrarian indicator, extreme values (> 3) may signal a bottom
 - Max pain is the strike price maximizing market maker profit — actual expiration price often converges toward max pain
 - Kalshi does NOT support keyword search — use `series_ticker` or `event_ticker` to filter markets. Find tickers by browsing [kalshi.com](https://kalshi.com) or listing markets without filters first. Common series: `KXFED` (Fed rates), `KXINX` (S&P 500 range), `KXGDP` (GDP)
 - Deribit futures method is `get_futures_term_structure()`, not `get_futures_curve()`. Option chain method is `get_option_chain()`
 - FearGreedProvider has no API key requirement. Returns a single composite score (0-100) synthesizing 7 market price signals: stock momentum, breadth, VIX, put/call ratio, junk bond demand, volatility, safe haven demand. Score < 25 = Extreme Fear, > 75 = Extreme Greed
-- CMEFedWatchProvider has no API key requirement but CME now blocks non-browser requests via Akamai anti-scraping (403 Forbidden). The provider returns a clear fallback message directing to Kalshi `KXFED` series or FRED `FEDFUNDS`. For rate probabilities, use Kalshi KXFED instead.
+- For FOMC rate change probabilities, use Kalshi `KXFED` series directly — it is a one-step market vote on the rate outcome (binary-contract pricing), more direct than futures-derived estimates. Get order books via `kalshi.get_order_book("KXFED-...")` for midpoint-implied probability; the underlying rate trend comes from Treasury yield curve + FRED `FEDFUNDS`.
 - When reporting dollar amounts, use `USD` instead of `$` to avoid markdown renderers interpreting `$...$` as LaTeX

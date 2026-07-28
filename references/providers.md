@@ -1,12 +1,12 @@
 # Provider API 速查
 
-YahooPriceProvider 和 YFinanceProvider 需要 `pip install yfinance`。FredProvider 需要免费 FRED API key。
+全部 provider 纯 Python 标准库实现，零外部依赖。FredProvider 需要免费 FRED API key。
 
 ```python
 from digital_oracle import (
     PolymarketProvider, PolymarketEventQuery,
     KalshiProvider, KalshiMarketQuery,
-    YahooPriceProvider, PriceHistoryQuery,   # pip install yfinance
+    YahooPriceProvider, PriceHistoryQuery,   # pure stdlib
     DeribitProvider, DeribitFuturesCurveQuery, DeribitOptionChainQuery,
     USTreasuryProvider, YieldCurveQuery, ExchangeRateQuery,
     WebSearchProvider,
@@ -15,9 +15,8 @@ from digital_oracle import (
     EdgarProvider, EdgarInsiderQuery, EdgarSearchQuery,
     BisProvider, BisRateQuery, BisCreditGapQuery,
     WorldBankProvider, WorldBankQuery,
-    YFinanceProvider, OptionsChainQuery,      # pip install yfinance
+    YFinanceProvider, OptionsChainQuery,      # pure stdlib
     FearGreedProvider,
-    CMEFedWatchProvider,
     FredProvider, FredSeriesQuery, FredSearchQuery,  # free FRED API key
     FRED_SERIES, resolve_series_id,
 )
@@ -76,7 +75,7 @@ book = k.get_order_book("KXFED-27APR-T4.25", depth=10)
 
 ## YahooPriceProvider
 
-全球价格历史。股票、ETF、外汇、商品、指数。**需要 `pip install yfinance`。**
+全球价格历史。股票、ETF、外汇、商品、指数。直打 Yahoo chart API，纯标准库。
 
 ```python
 yahoo = YahooPriceProvider()
@@ -221,7 +220,7 @@ prices = cg.get_prices(CoinGeckoPriceQuery(
 ))
 # 返回 list[CoinGeckoPrice]
 # price.coin_id, price.price_usd, price.market_cap_usd
-# price.volume_24h_usd, price.price_change_24h_pct
+# price.volume_24h_usd, price.price_change_24h_pct  # 24h 涨跌幅，默认开启
 
 # 全球市场概览
 g = cg.get_global()
@@ -240,15 +239,41 @@ markets = cg.list_markets(CoinGeckoMarketQuery(per_page=10, page=1))
 SEC EDGAR 公告检索 + 内部人交易（Form 4）。
 
 ```python
-edgar = EdgarProvider()
+edgar = EdgarProvider()  # 实际使用需 user_email，否则 SEC 会 403
 
-# 内部人交易（Form 4 减持/增持）
+# ★ 内部人交易明细（推荐）—— 解析 Form 4 正文，拿到真实买卖方向
+txs = edgar.get_insider_transactions_detail(EdgarInsiderQuery(ticker="NVDA", limit=20))
+# 返回 list[EdgarInsiderTransaction]
+# tx.reporting_owner       # 交易人，e.g. "COXE TENCH"
+# tx.owner_title           # 职位，e.g. "Director"
+# tx.transaction_date      # YYYY-MM-DD
+# tx.transaction_code      # "P"=买, "S"=卖, "G"=赠, "A"=授予
+# tx.transaction_label     # "Open-market sale" 等可读描述
+# tx.is_purchase / tx.is_sale   # 布尔，直接判断买卖
+# tx.shares                # 交易股数
+# tx.price_per_share       # 成交价 (USD)
+# tx.shares_owned_after    # 交易后持仓
+# tx.filing_url            # 原始 Form 4 XML 链接
+
+# 文件列表（仅元数据，无买卖方向）—— 一般不需要直接用
 summary = edgar.get_insider_transactions(EdgarInsiderQuery(ticker="NVDA", limit=20))
 # 返回 EdgarInsiderSummary
-# summary.ticker, summary.company_name, summary.cik
-# summary.total_form4_count
 # summary.recent_form4s -> tuple[EdgarFiling, ...]
 # filing.filing_date, filing.report_date, filing.accession_number
+
+# ★ 长期资本投入趋势（核心长期信号）—— 已花出去的钱，最硬的长期判断依据
+# 传任意 ticker 列表（无预设主题，调用方自己决定相关公司），覆盖美股/中概股/欧洲ADR
+trends = edgar.get_capital_trends(
+    tickers=["NVDA", "MSFT", "BABA", "ASML"],   # 你自己决定查哪些公司
+    concept="R&D",    # "R&D"(研发) / "CapEx"(资本开支) / "PP&E"(净资产基座)
+    years=3,
+)
+# 返回 list[CompanyCapitalTrend]
+# trend.ticker, trend.company_name, trend.currency  # "USD" 优先，无 USD 时保留原币种
+# trend.history -> tuple[CapitalDataPoint, ...]      # 按财年升序
+#   point.fiscal_year, point.value, point.period_end
+# trend.latest_value, trend.latest_fiscal_year
+# trend.yoy_growth_pct    # 同比，正=扩张/负=收缩，None=数据不足
 
 # 全文检索 SEC 公告
 hits = edgar.search_filings(EdgarSearchQuery(
@@ -320,7 +345,7 @@ result = wb.get_indicator(WorldBankQuery(
 
 ## YFinanceProvider
 
-US 股票期权链 + Black-Scholes Greeks。**需要 `pip install yfinance`。**
+US 股票期权链 + Black-Scholes Greeks。直打 Yahoo v7 options API（内部维护 cookie/crumb 握手），纯标准库。
 
 ```python
 yf = YFinanceProvider()
@@ -460,22 +485,3 @@ resolve_series_id("T10Y2Y")  # → "T10Y2Y"
 | OIL | DCOILWTICO | WTI Crude Oil Spot Price |
 
 **注意：** FRED 中的缺失值 (`"."`) 自动跳过。API key 免费注册：https://fredaccount.stlouisfed.org/apikeys
-
-## CMEFedWatchProvider
-
-CME FedWatch 利率期货隐含概率。从 30 天联邦基金利率期货价格推算。
-
-```python
-fw = CMEFedWatchProvider()
-
-meetings = fw.get_probabilities()
-# 返回 list[FedMeetingProbability]
-# m.meeting_date          # e.g. "2026-05-07"
-# m.current_target_low    # e.g. 4.25
-# m.current_target_high   # e.g. 4.50
-# m.probabilities         # tuple[FedRateProb, ...]
-#   p.target_low, p.target_high  # e.g. 4.00, 4.25
-#   p.probability                # 0.0 to 1.0
-```
-
-**注意：** CME endpoint 可能偶尔不可用。如果失败，可用 Kalshi `KXFED` 系列作为备选获取利率概率。

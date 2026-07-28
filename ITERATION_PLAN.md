@@ -267,61 +267,13 @@ class FearGreedProvider(SignalProvider):
 
 ---
 
-## 迭代 3：CMEFedWatchProvider（利率期货隐含概率）
-
-### 为什么
-
-"美联储下次会加息还是降息？" 是宏观分析中最常见的问题之一。目前只能通过 Kalshi 的 `KXFED` 间接获取，或者 web search CME FedWatch 页面。
-
-用 30 天联邦基金利率期货的价格可以直接计算出市场隐含的利率概率。这是另一个经典的"价格即共识"场景。
-
-### 方案
-
-不用 CME 的付费 API。而是通过 FRED 的联邦基金利率期货数据 + 自行计算概率。但这个比较复杂，更实际的方案是：
-
-**直接从 CME 的免费网页工具抓取结构化数据。**
-
-CME FedWatch 的网页底层会请求一个 JSON endpoint：
-- URL: `https://www.cmegroup.com/services/fed-funds-target/fed-funds-target.json` （需要实际测试确认，URL 可能有变化）
-
-如果此 JSON endpoint 可用且稳定：
-
-```python
-@dataclass(frozen=True)
-class FedMeetingProbability:
-    meeting_date: str             # e.g. "2026-05-07"
-    current_target_low: float     # e.g. 3.5
-    current_target_high: float    # e.g. 3.75
-    probabilities: tuple[FedRateProb, ...]  # each possible target range + probability
-
-@dataclass(frozen=True)
-class FedRateProb:
-    target_low: float
-    target_high: float
-    probability: float  # 0.0 to 1.0
-
-class CMEFedWatchProvider(SignalProvider):
-    provider_id = "cme_fedwatch"
-    display_name = "CME FedWatch (implied from futures)"
-    capabilities = ("rate_probabilities",)
-```
-
-**注意：** 这个 endpoint 需要实际测试验证。如果 CME 限制了直接访问，备选方案是通过 web search + 解析来获取数据，或者使用 FRED 的联邦基金利率期货合约价格手动计算。实现时请先验证 API 可用性。
-
-### SKILL.md 集成
-
-在 "Economic recession / Macro cycle" 分类中添加：
-- `CMEFedWatchProvider: Market-implied FOMC rate change probabilities — derived from 30-Day Fed Funds futures prices`
-
----
-
 ## 迭代顺序和理由
 
 | 优先级 | Provider | 依赖 | 理由 |
 |--------|----------|------|------|
 | **P0** | FredProvider | stdlib（需 API key） | 一举替换最多的 web search 补丁，覆盖 VIX/OAS/MOVE/利差 |
 | **P1** | FearGreedProvider | stdlib | 10 分钟搞定，免费无 key，7 个价格信号的合成情绪指标 |
-| **P2** | CMEFedWatchProvider | stdlib | 利率概率是宏观分析的核心，但 endpoint 可用性需验证 |
+| ~~P2~~ | ~~CMEFedWatchProvider~~ | — | **已废弃**：CME endpoint 被 Akamai 在连接层永久封锁，curl_cffi 浏览器指纹亦无法突破。利率概率改用 Kalshi `KXFED` 直接二值合约定价（一手市场定价，优于期货推导）。 |
 
 每完成一个迭代后：
 1. 添加 provider 代码 + 测试

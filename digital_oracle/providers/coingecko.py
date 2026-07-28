@@ -30,6 +30,7 @@ class CoinGeckoPriceQuery:
     coin_ids: tuple[str, ...] = ("bitcoin", "ethereum")
     include_market_cap: bool = True
     include_24h_vol: bool = True
+    include_24h_change: bool = True  # populates CoinGeckoPrice.price_change_24h_pct
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ class CoinGeckoProvider(SignalProvider):
                 "vs_currencies": "usd",
                 "include_market_cap": query.include_market_cap,
                 "include_24hr_vol": query.include_24h_vol,
+                "include_24hr_change": query.include_24h_change,
             },
         )
         if not isinstance(payload, dict):

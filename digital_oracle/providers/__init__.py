@@ -38,9 +38,13 @@ from .edgar import (
     EdgarFiling,
     EdgarInsiderQuery,
     EdgarInsiderSummary,
+    EdgarInsiderTransaction,
     EdgarProvider,
     EdgarSearchHit,
     EdgarSearchQuery,
+    CAPITAL_CONCEPTS,
+    CapitalDataPoint,
+    CompanyCapitalTrend,
 )
 from .kalshi import (
     KalshiEvent,
@@ -88,11 +92,6 @@ from .fear_greed import (
     FearGreedProvider,
     FearGreedSnapshot,
 )
-from .cme_fedwatch import (
-    CMEFedWatchProvider,
-    FedMeetingProbability,
-    FedRateProb,
-)
 from .fred import (
     FRED_SERIES,
     FredObservation,
@@ -127,7 +126,6 @@ __all__ = [
     "CoinGeckoMarketQuery",
     "CoinGeckoPrice",
     "CoinGeckoPriceQuery",
-    "CMEFedWatchProvider",
     "CoinGeckoProvider",
     "DeribitBookSummary",
     "DeribitFutureTermPoint",
@@ -145,13 +143,15 @@ __all__ = [
     "EdgarFiling",
     "EdgarInsiderQuery",
     "EdgarInsiderSummary",
+    "EdgarInsiderTransaction",
     "EdgarProvider",
     "EdgarSearchHit",
     "EdgarSearchQuery",
+    "CAPITAL_CONCEPTS",
+    "CapitalDataPoint",
+    "CompanyCapitalTrend",
     "FearGreedProvider",
     "FearGreedSnapshot",
-    "FedMeetingProbability",
-    "FedRateProb",
     "FRED_SERIES",
     "FredObservation",
     "FredProvider",

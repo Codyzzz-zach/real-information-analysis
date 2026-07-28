@@ -172,6 +172,22 @@ class CoinGeckoPriceTests(unittest.TestCase):
         self.assertEqual(params["ids"], "bitcoin")
         self.assertEqual(params["include_market_cap"], False)
         self.assertEqual(params["include_24hr_vol"], False)
+        # include_24hr_change defaults to True so price_change_24h_pct is populated.
+        self.assertEqual(params["include_24hr_change"], True)
+
+    def test_get_prices_includes_24h_change_by_default(self) -> None:
+        """Regression: the request must send include_24hr_change=true, otherwise
+        the API omits usd_24h_change and price_change_24h_pct is always None."""
+        self.provider.get_prices()  # default query
+        _url, params = self.fake_client.calls[0]
+        assert params is not None
+        self.assertEqual(params["include_24hr_change"], True)
+
+    def test_get_prices_change_field_parsed(self) -> None:
+        prices = self.provider.get_prices(CoinGeckoPriceQuery(coin_ids=("bitcoin",)))
+        btc = prices[0]
+        # Fixture SAMPLE_PRICES provides usd_24h_change=-1.23 for bitcoin.
+        self.assertAlmostEqual(btc.price_change_24h_pct or 0, -1.23)
 
     def test_get_prices_skips_missing_coins(self) -> None:
         query = CoinGeckoPriceQuery(coin_ids=("bitcoin", "nonexistent"))

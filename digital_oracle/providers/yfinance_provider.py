@@ -1,17 +1,23 @@
 """Yahoo Finance options chain provider.
 
-Requires ``yfinance``: ``pip install yfinance``
+Fetches US equity options chains directly from Yahoo Finance's v7 options
+endpoint (no ``yfinance`` dependency — pure stdlib) and computes
+Black-Scholes Greeks using only ``math.erf``.
 
-This provider fetches US equity options chains from Yahoo Finance and computes
-Black-Scholes Greeks using only the Python standard library (``math.erf``).
+The v7 options endpoint requires a ``crumb`` bound to a session cookie; the
+fetcher manages that handshake internally (see :class:`_DirectYahooOptionsFetcher`).
 """
 
 from __future__ import annotations
 
+import json
 import math
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from http.client import HTTPException as _HttpConnError
 from typing import Any, Protocol, Sequence
+from urllib.error import HTTPError, URLError
 
 from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderError, ProviderParseError, SignalProvider
@@ -283,7 +289,8 @@ class _ChainRows:
 class OptionsFetcher(Protocol):
     """Protocol that abstracts option data retrieval.
 
-    The default implementation wraps *yfinance*; tests can supply a fake.
+    The default implementation talks to Yahoo's v7 options endpoint
+    directly (no ``yfinance``); tests can supply a fake.
     """
 
     def fetch_expirations(self, ticker: str) -> tuple[str, ...]: ...
@@ -291,67 +298,222 @@ class OptionsFetcher(Protocol):
     def fetch_underlying_price(self, ticker: str) -> float | None: ...
 
 
-class _YFinanceFetcher:
-    """Default fetcher backed by the *yfinance* library."""
+class _DirectYahooOptionsFetcher:
+    """Default fetcher backed by Yahoo Finance's v7 options API.
+
+    Yahoo's options endpoint requires a ``crumb`` query parameter that is
+    bound to a session cookie.  The crumb is *single-use per cookiejar* —
+    fetching a second crumb on the same cookiejar invalidates the first.
+    Therefore this fetcher lazily initialises one ``CookieJar`` + one crumb
+    on first use and reuses them for the rest of its lifetime.  It never
+    re-fetches the crumb.
+
+    A short ``Mozilla/5.0`` User-Agent is used deliberately: realistic
+    full-browser User-Agents are flagged by Yahoo and rate-limited (429),
+    while the minimal UA is tolerated.  Same finding as the price-history
+    chart endpoint.
+
+    Requires only the Python standard library.
+    """
+
+    _OPTIONS_URL = "https://query1.finance.yahoo.com/v7/finance/options/{ticker}"
+    _CONSENT_URL = "https://fc.yahoo.com"
+    _CRUMB_URL = "https://query1.finance.yahoo.com/v1/test/getcrumb"
+    _USER_AGENT = "Mozilla/5.0"
+    _TIMEOUT = 25.0
+    _RETRIES = 4
+    _RETRY_DELAY = 1.0
 
     def __init__(self) -> None:
-        import sys, os
+        import http.cookiejar
+        import urllib.request
 
-        # Check local .deps directory first (from manual uv pip install --target)
-        _deps = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, ".deps"
+        self._cookiejar = http.cookiejar.CookieJar()
+        self._opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self._cookiejar)
         )
-        if os.path.isdir(_deps) and _deps not in sys.path:
-            sys.path.insert(0, _deps)
+        self._opener.addheaders = [("User-Agent", self._USER_AGENT)]
+        self._crumb: str | None = None
 
-        try:
-            import yfinance  # type: ignore[import-untyped]
-        except ImportError:
-            raise ImportError(
-                "yfinance is required for options chain analysis but is not installed.\n"
-                "Install it with:  uv pip install --target .deps yfinance\n"
-                "See README for details."
-            )
+    # -- credential lifecycle -------------------------------------------
 
-        self._yf = yfinance
+    def _ensure_crumb(self) -> str:
+        """Return the session crumb, initialising it once on first call.
+
+        Yahoo intermittently drops TLS connections (``SSL: UNEXPECTED_EOF``),
+        so the consent + crumb handshake is retried up to ``_RETRIES`` times.
+        HTTP 404 from the consent endpoint is expected — it still sets the
+        cookies Yahoo expects — and is therefore not retried.
+        """
+        if self._crumb is not None:
+            return self._crumb
+
+        last_exc: Exception | None = None
+        for attempt in range(1, self._RETRIES + 1):
+            # Step 1: seed the cookiejar.  fc.yahoo.com returns 404 but still
+            # sets the A1/A3 cookies Yahoo expects.
+            try:
+                self._opener.open(self._CONSENT_URL, timeout=self._TIMEOUT)
+            except HTTPError:
+                # 404 is expected — cookies are set regardless.
+                pass
+            except (URLError, TimeoutError, _HttpConnError) as exc:
+                last_exc = exc
+                if attempt < self._RETRIES:
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(
+                    f"Yahoo consent endpoint unreachable: {exc}"
+                ) from exc
+
+            # Step 2: fetch the crumb bound to these cookies.
+            try:
+                body = self._opener.open(self._CRUMB_URL, timeout=self._TIMEOUT).read()
+                crumb = body.decode("utf-8").strip()
+            except HTTPError as exc:
+                raise ProviderError(
+                    f"Yahoo crumb endpoint returned HTTP {exc.code}; "
+                    "options chain unavailable"
+                ) from exc
+            except (URLError, TimeoutError, _HttpConnError) as exc:
+                last_exc = exc
+                if attempt < self._RETRIES:
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(
+                    f"Yahoo crumb endpoint unreachable: {exc}"
+                ) from exc
+
+            if not crumb:
+                raise ProviderError(
+                    "Yahoo returned an empty crumb; options chain unavailable"
+                )
+            self._crumb = crumb
+            return crumb
+
+        raise ProviderError(
+            "Yahoo crumb handshake failed after "
+            f"{self._RETRIES} retries"
+        ) from last_exc
+
+    def _get_options(self, ticker: str, *, date_ts: int | None = None) -> dict[str, Any]:
+        """Call the v7 options endpoint with retries, returning parsed JSON."""
+        crumb = self._ensure_crumb()
+        from urllib.parse import quote, urlencode
+
+        params: dict[str, object] = {"crumb": crumb}
+        if date_ts is not None:
+            params["date"] = date_ts
+        url = f"{self._OPTIONS_URL.format(ticker=ticker)}?{urlencode(params)}"
+
+        last_exc: Exception | None = None
+        for attempt in range(1, self._RETRIES + 1):
+            try:
+                body = self._opener.open(url, timeout=self._TIMEOUT).read()
+                return json.loads(body.decode("utf-8"))
+            except HTTPError as exc:
+                if exc.code in (429, 401, 500, 502, 503) and attempt < self._RETRIES:
+                    last_exc = exc
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(
+                    f"Yahoo options API failed for {ticker!r}: HTTP {exc.code}"
+                ) from exc
+            except (URLError, TimeoutError, _HttpConnError, json.JSONDecodeError) as exc:
+                last_exc = exc
+                if attempt < self._RETRIES:
+                    time.sleep(self._RETRY_DELAY)
+                    continue
+                raise ProviderError(
+                    f"Yahoo options API failed for {ticker!r}: {exc}"
+                ) from exc
+        raise ProviderError(
+            f"Yahoo options API failed for {ticker!r} after {self._RETRIES} retries"
+        ) from last_exc
+
+    # -- OptionsFetcher protocol ----------------------------------------
 
     def fetch_expirations(self, ticker: str) -> tuple[str, ...]:
-        t = self._yf.Ticker(ticker)
-        return tuple(t.options)
+        data = self._get_options(ticker)
+        result = self._extract_result(data, ticker)
+        raw_exps = result.get("expirationDates") or []
+        return tuple(self._ts_to_date(ts) for ts in raw_exps)
 
     def fetch_chain(self, ticker: str, expiration: str) -> _ChainRows:
-        t = self._yf.Ticker(ticker)
-        chain = t.option_chain(expiration)
-
-        def _df_to_dicts(df: Any) -> list[dict[str, Any]]:  # pragma: no cover
-            records: list[dict[str, Any]] = []
-            for _, row in df.iterrows():
-                d: dict[str, Any] = {}
-                for col in df.columns:
-                    val = row[col]
-                    # Convert NaN to None
-                    if isinstance(val, float) and math.isnan(val):
-                        val = None
-                    d[col] = val
-                records.append(d)
-            return records
-
-        return _ChainRows(
-            calls=_df_to_dicts(chain.calls),
-            puts=_df_to_dicts(chain.puts),
-        )
+        date_ts = self._expiration_to_ts(ticker, expiration)
+        data = self._get_options(ticker, date_ts=date_ts)
+        result = self._extract_result(data, ticker)
+        options = result.get("options") or [{}]
+        chain = options[0] if options else {}
+        calls = self._normalise_contracts(chain.get("calls") or [])
+        puts = self._normalise_contracts(chain.get("puts") or [])
+        return _ChainRows(calls=calls, puts=puts)
 
     def fetch_underlying_price(self, ticker: str) -> float | None:
-        t = self._yf.Ticker(ticker)
-        try:
-            return float(t.fast_info["lastPrice"])
-        except Exception:
-            try:
-                info = t.info
-                price = info.get("regularMarketPrice") or info.get("currentPrice")
-                return float(price) if price is not None else None
-            except Exception:
-                return None
+        data = self._get_options(ticker)
+        result = self._extract_result(data, ticker)
+        quote = result.get("quote") or {}
+        price = quote.get("regularMarketPrice")
+        if price is None:
+            price = quote.get("lastPrice")
+        return float(price) if price is not None else None
+
+    # -- helpers --------------------------------------------------------
+
+    @staticmethod
+    def _extract_result(data: dict[str, Any], ticker: str) -> dict[str, Any]:
+        results = (data.get("optionChain") or {}).get("result") or []
+        if not results:
+            err = (data.get("optionChain") or {}).get("error") or {}
+            msg = err.get("description") if isinstance(err, dict) else None
+            raise ProviderError(
+                f"Yahoo options API returned no result for {ticker!r}"
+                + (f": {msg}" if msg else "")
+            )
+        return results[0]
+
+    def _expiration_to_ts(self, ticker: str, expiration: str) -> int:
+        """Resolve a ``YYYY-MM-DD`` expiration to Yahoo's unix timestamp.
+
+        Yahoo's ``?date=`` parameter expects the unix-seconds timestamp it
+        advertises in ``expirationDates``.  We map the human date back to
+        that exact timestamp rather than re-deriving it, so DST / time-zone
+        quirks can't shift it.
+        """
+        data = self._get_options(ticker)
+        result = self._extract_result(data, ticker)
+        date_to_ts = {
+            self._ts_to_date(ts): ts for ts in (result.get("expirationDates") or [])
+        }
+        ts = date_to_ts.get(expiration)
+        if ts is None:
+            raise ProviderError(
+                f"expiration {expiration!r} not available for {ticker!r}"
+            )
+        return ts
+
+    @staticmethod
+    def _ts_to_date(ts: int) -> str:
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+
+    @staticmethod
+    def _normalise_contracts(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Pass through v7 contract dicts, normalising NaN to None.
+
+        v7 returns plain JSON (no NaN), but normalisation keeps behaviour
+        consistent with the previous yfinance-backed fetcher.
+        """
+        out: list[dict[str, Any]] = []
+        for d in raw:
+            clean: dict[str, Any] = {}
+            for k, v in d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    v = None
+                clean[k] = v
+            out.append(clean)
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -362,8 +524,9 @@ class _YFinanceFetcher:
 class YFinanceProvider(SignalProvider):
     """Yahoo Finance options chain provider.
 
-    Provides options chain data with computed Black-Scholes Greeks.
-    Requires ``yfinance``: ``pip install yfinance``.
+    Provides options chain data (IV, Greeks, put/call ratio, max pain)
+    fetched directly from Yahoo's v7 options endpoint — no ``yfinance``
+    dependency.  Black-Scholes Greeks are computed with ``math.erf``.
     """
 
     provider_id = "yfinance"
@@ -371,7 +534,7 @@ class YFinanceProvider(SignalProvider):
     capabilities = ("options_chain", "options_expirations", "greeks")
 
     def __init__(self, *, fetcher: OptionsFetcher | None = None) -> None:
-        self._fetcher: OptionsFetcher = fetcher or _YFinanceFetcher()
+        self._fetcher: OptionsFetcher = fetcher or _DirectYahooOptionsFetcher()
 
     # -- public API --------------------------------------------------------
 

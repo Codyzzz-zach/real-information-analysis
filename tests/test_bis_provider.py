@@ -32,6 +32,16 @@ Q,CN,2025-Q3,15.3
 Q,CN,2025-Q2,14.9
 """
 
+# Real BIS WS_CREDIT_GAP response uses BORROWERS_CTY (not REF_AREA) plus extra
+# dimension columns. Verified against the live API on 2026-07-26.
+SAMPLE_CREDIT_GAP_LIVE_CSV = """\
+FREQ,BORROWERS_CTY,TC_BORROWERS,TC_LENDERS,CG_DTYPE,TIME_PERIOD,OBS_VALUE
+Q,US,P,A,A,2025-Q3,-11.99
+Q,US,P,A,A,2025-Q2,-12.36
+Q,CN,P,A,A,2025-Q3,5.40
+Q,CN,P,A,A,2025-Q2,4.82
+"""
+
 SAMPLE_EMPTY_CSV = """\
 FREQ,REF_AREA,TIME_PERIOD,OBS_VALUE
 """
@@ -129,13 +139,29 @@ class BisProviderCreditGapTests(unittest.TestCase):
         self.assertEqual(gaps[2].country, "CN")
         self.assertAlmostEqual(gaps[2].gap_pct, 15.3)
 
+    def test_parse_credit_gaps_live_format(self) -> None:
+        """Live BIS responses use BORROWERS_CTY with extra dimension columns."""
+        provider = BisProvider(http_client=FakeTextClient(SAMPLE_CREDIT_GAP_LIVE_CSV))
+        gaps = provider.get_credit_to_gdp(
+            BisCreditGapQuery(countries=("US", "CN"), start_year=2024)
+        )
+
+        self.assertEqual(len(gaps), 4)
+        self.assertEqual(gaps[0].country, "US")
+        self.assertEqual(gaps[0].period, "2025-Q3")
+        self.assertAlmostEqual(gaps[0].gap_pct, -11.99)
+        self.assertEqual(gaps[2].country, "CN")
+        self.assertAlmostEqual(gaps[2].gap_pct, 5.40)
+
     def test_builds_correct_url_for_credit_gap(self) -> None:
         self.provider.get_credit_to_gdp(
             BisCreditGapQuery(countries=("US", "CN"), start_year=2015)
         )
 
         url, params = self.fake_client.calls[0]
-        self.assertIn("WS_CREDIT_GAP/Q.US+CN.C:G:P", url)
+        # BIS credit-gap endpoint uses no dimension suffix (verified against live API;
+        # the earlier `.C:G:P` suffix returns 404).
+        self.assertIn("WS_CREDIT_GAP/Q.US+CN", url)
         assert params is not None
         self.assertEqual(params["startPeriod"], 2015)
 
@@ -143,7 +169,7 @@ class BisProviderCreditGapTests(unittest.TestCase):
         self.provider.get_credit_to_gdp()
 
         url, params = self.fake_client.calls[0]
-        self.assertIn("WS_CREDIT_GAP/Q.US.C:G:P", url)
+        self.assertIn("WS_CREDIT_GAP/Q.US", url)
         assert params is not None
         self.assertEqual(params["startPeriod"], 2015)
 

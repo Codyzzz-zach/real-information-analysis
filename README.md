@@ -37,18 +37,21 @@ Digital Oracle 把这个洞察变成了一个可执行的工具。它接入了 1
 |----------|---------|------|
 | Polymarket | 预测市场合约 | 事件概率定价 |
 | Kalshi | SEC 监管二元合约 | 美国政治/经济事件 |
-| Stooq | 股票/ETF/外汇/商品 | 价格历史和趋势 |
+| Yahoo Finance (Price) | 股票/ETF/外汇/商品 | 价格历史和趋势 |
+| Stooq | 股票/ETF/外汇/商品（CSV） | 欧洲股 / 独立价格源 |
 | Deribit | 加密衍生品 | 期货 term structure、期权 IV |
 | US Treasury | 国债收益率 | 利率曲线、通胀预期 |
+| FRED | 美联储经济数据 | VIX、OAS、TED、CPI、GDP 结构化时序（需免费 key） |
 | CFTC COT | 期货持仓 | 机构仓位方向（smart money） |
 | CoinGecko | 加密现货 | BTC/ETH 价格、市值 |
 | SEC EDGAR | 内部人交易 | Form 4 买卖信号 |
 | BIS | 央行数据 | 政策利率、信贷/GDP 缺口 |
 | World Bank | 发展指标 | GDP、人口、贸易 |
-| Yahoo Finance | US 期权链 | IV、Greeks、put/call ratio |
-| Web Search | 网页搜索 | VIX、CDS 等补充数据 |
+| Yahoo Finance (Options) | US 期权链 | IV、Greeks、put/call ratio、max pain |
+| Fear & Greed | 市场情绪 | CNN 7 信号合成 → 0-100 情绪分 |
+| Web Search | 网页搜索 | CDS、BDI 等补充数据 |
 
-所有 API 均免费、无需 API Key。
+15 个数据源全部纯 Python 标准库实现、零外部依赖。FRED 需要免费的 API key，其余无需 key。
 
 ## 安装
 
@@ -69,11 +72,7 @@ Agent 会自行 clone 代码、阅读方法论、调用 provider。
 ### 前置依赖
 
 - [uv](https://docs.astral.sh/uv/) — Python 包管理器，skill 运行时用它执行 Python 脚本
-- 12 个数据源中有 11 个零外部依赖（纯 Python 标准库）。期权链分析需要额外安装：
-
-```bash
-uv pip install yfinance
-```
+- 13 个数据源全部零外部依赖（纯 Python 标准库）。FredProvider 需要免费的 FRED API key（[注册](https://fredaccount.stlouisfed.org/apikeys)）。
 
 ## 工作原理
 
