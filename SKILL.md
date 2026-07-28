@@ -279,7 +279,7 @@ if result.errors:
 - Requires free API key from https://fredaccount.stlouisfed.org/apikeys
 - Use `FredProvider(api_key="...")` or set `FRED_API_KEY` env var
 - `resolve_series_id("VIX")` → `"VIXCLS"` for common alias resolution
-- Curated series shortcuts in `FRED_SERIES` dict: VIX, TED, HY_OAS, IG_OAS, T10Y2Y, T10Y3M, T10YIE, T5YIFR, CPI, GDP, ICSA, UNRATE, FEDFUNDS, MARGIN_DEBT, WALCL, GOLD, OIL (MOVE index no longer available in FRED — use VIX as bond vol proxy)
+- Curated series shortcuts in `FRED_SERIES` dict: VIX, TED, HY_OAS, IG_OAS, T10Y2Y, T10Y3M, T10YIE, T5YIFR, CPI, GDP, ICSA, UNRATE, FEDFUNDS, MARGIN_DEBT, WALCL, OIL (MOVE index no longer available in FRED — use VIX for bond vol; GOLD series GOLDAMGBD228NLBR removed from FRED — use YahooPriceProvider `GC=F` for gold prices)
 - Observations with value `"."` (FRED missing data) are automatically skipped
 - Series metadata (title, frequency, units) fetched concurrently with observations
 

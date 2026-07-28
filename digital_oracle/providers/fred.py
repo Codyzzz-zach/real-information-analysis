@@ -4,8 +4,8 @@ Zero external dependencies (pure stdlib).  Requires a free FRED API key
 from https://fredaccount.stlouisfed.org/apikeys .
 
 Replaces multiple web-search-based data points with structured, direct
-API access: VIX, high-yield OAS, MOVE index, TED spread, breakeven
-inflation, yield curve spreads, margin debt, and more.
+API access: VIX, high-yield OAS, TED spread, breakeven inflation,
+yield curve spreads, margin debt, and more.
 """
 
 from __future__ import annotations
@@ -120,7 +120,8 @@ FRED_SERIES = {
     "MARGIN_DEBT": "BOGZ1FL663067003Q",  # Margin Debt
     "WALCL": "WALCL",           # Fed Balance Sheet - Total Assets
     # Commodity proxies
-    "GOLD": "GOLDAMGBD228NLBR",  # Gold Fixing Price
+    # "GOLD" series (GOLDAMGBD228NLBR) has been removed from FRED (returns 400
+    # "series does not exist") — use YahooPriceProvider GC=F for gold prices.
     "OIL": "DCOILWTICO",         # WTI Crude Oil Spot Price
 }
 

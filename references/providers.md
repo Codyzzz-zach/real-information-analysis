@@ -481,7 +481,8 @@ resolve_series_id("T10Y2Y")  # → "T10Y2Y"
 | FEDFUNDS | FEDFUNDS | Fed Funds Effective Rate |
 | MARGIN_DEBT | BOGZ1FL663067003Q | Margin Debt |
 | WALCL | WALCL | Fed Balance Sheet Total Assets |
-| GOLD | GOLDAMGBD228NLBR | Gold Fixing Price |
 | OIL | DCOILWTICO | WTI Crude Oil Spot Price |
+
+> **已退役序列**：`MOVE`（ICE BofA MOVE，FRED 已删除，用 VIX 替代）、`GOLD`（伦敦金定盘价 GOLDAMGBD228NLBR，FRED 已删除，金价用 YahooPriceProvider `GC=F`）、`TED`（TEDRATE，FRED 标记 DISCONTINUED 不再更新，旧数据仍可查）。
 
 **注意：** FRED 中的缺失值 (`"."`) 自动跳过。API key 免费注册：https://fredaccount.stlouisfed.org/apikeys
