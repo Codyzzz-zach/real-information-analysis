@@ -8,6 +8,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from ._version import __version__ as _package_version
+
 
 class HttpClientError(RuntimeError):
     pass
@@ -48,7 +50,7 @@ class UrllibJsonClient:
     headers: Mapping[str, str] = field(
         default_factory=lambda: {
             "Accept": "application/json,text/csv,text/plain,application/xml",
-            "User-Agent": "digital-oracle/0.1",
+            "User-Agent": f"real-information-analysis/{_package_version}",
         }
     )
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
-from digital_oracle.http import JsonHttpClient, UrllibJsonClient
+from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderParseError, SignalProvider

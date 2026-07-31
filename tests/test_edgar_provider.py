@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from digital_oracle.providers.edgar import (
+from real_information_analysis.providers.edgar import (
     EDGAR_SEARCH_URL,
     EDGAR_SUBMISSIONS_URL,
     EDGAR_TICKERS_URL,
@@ -18,7 +18,7 @@ from digital_oracle.providers.edgar import (
     EdgarProvider,
     EdgarSearchQuery,
 )
-from digital_oracle.providers.base import ProviderError
+from real_information_analysis.providers.base import ProviderError
 
 
 SAMPLE_TICKERS = {
@@ -309,7 +309,7 @@ class EdgarProviderMetadataTests(unittest.TestCase):
 # Form 4 body parsing + get_insider_transactions_detail
 # ---------------------------------------------------------------------------
 
-from digital_oracle.providers.edgar import (
+from real_information_analysis.providers.edgar import (
     EDGAR_ARCHIVES_URL,
     EdgarInsiderTransaction,
     FORM4_TRANSACTION_CODES,
@@ -428,7 +428,7 @@ class ParseForm4XmlTests(unittest.TestCase):
         self.assertIsNone(parse_form4_xml(body, "acc", "url"))
 
     def test_invalid_xml_raises(self) -> None:
-        from digital_oracle.providers.base import ProviderParseError
+        from real_information_analysis.providers.base import ProviderParseError
 
         with self.assertRaises(ProviderParseError):
             parse_form4_xml("not xml at all <", "acc", "url")
@@ -575,7 +575,7 @@ class GetInsiderTransactionsDetailTests(unittest.TestCase):
 # get_capital_trends — long-term capital allocation signal
 # ---------------------------------------------------------------------------
 
-from digital_oracle.providers.edgar import (
+from real_information_analysis.providers.edgar import (
     CAPITAL_CONCEPTS,
     CapitalDataPoint,
     CompanyCapitalTrend,

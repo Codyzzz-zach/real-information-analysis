@@ -20,6 +20,8 @@ from urllib.request import Request, urlopen
 
 from .base import ProviderError, SignalProvider
 
+from .._version import __version__ as _package_version
+
 
 # Global rate limiter for DDG searches to avoid CAPTCHA triggers.
 _ddg_lock = threading.Lock()
@@ -51,7 +53,7 @@ class UrllibSearchClient:
     timeout_seconds: float = 20.0
     retry_attempts: int = 3
     retry_delay_seconds: float = 1.0
-    user_agent: str = "digital-oracle/0.1"
+    user_agent: str = f"real-information-analysis/{_package_version}"
 
     def fetch(self, url: str, *, headers: dict[str, str] | None = None) -> str:
         hdrs = {
@@ -352,7 +354,7 @@ class WebSearchProvider(SignalProvider):
                 DDG_HTML_URL,
                 data=form_data,
                 headers={
-                    "User-Agent": "digital-oracle/0.1",
+                    "User-Agent": f"real-information-analysis/{_package_version}",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Accept": "text/html",
                     "Accept-Language": "en-US,en;q=0.9",

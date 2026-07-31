@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from typing import Any
 from unittest.mock import patch
 
-from digital_oracle.providers.yfinance_provider import (
+from real_information_analysis.providers.yfinance_provider import (
     OptionContract,
     OptionGreeks,
     OptionsChain,
@@ -631,8 +631,8 @@ class EdgeCaseTests(unittest.TestCase):
 # _DirectYahooOptionsFetcher — crumb handshake + v7 parsing (no network)
 # ---------------------------------------------------------------------------
 
-from digital_oracle.providers.base import ProviderError
-from digital_oracle.providers.yfinance_provider import _DirectYahooOptionsFetcher
+from real_information_analysis.providers.base import ProviderError
+from real_information_analysis.providers.yfinance_provider import _DirectYahooOptionsFetcher
 
 
 def _fake_v7_payload(exp_ts: int = 1785110400, price: float = 150.0) -> dict[str, Any]:

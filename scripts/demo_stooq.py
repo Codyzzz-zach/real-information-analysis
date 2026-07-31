@@ -8,7 +8,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
 
-from digital_oracle.providers import PriceHistoryQuery, StooqProvider
+from real_information_analysis.providers import PriceHistoryQuery, StooqProvider
 
 
 def main() -> int:

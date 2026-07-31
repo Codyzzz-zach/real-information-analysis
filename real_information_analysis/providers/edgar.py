@@ -4,10 +4,12 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from digital_oracle.http import JsonHttpClient, UrllibJsonClient
+from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float
 from .base import ProviderError, ProviderParseError, SignalProvider
+
+from .._version import __version__ as _package_version
 
 EDGAR_SUBMISSIONS_URL = "https://data.sec.gov/submissions"
 EDGAR_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -246,7 +248,7 @@ class EdgarProvider(SignalProvider):
         if http_client is None:
             # SEC EDGAR requires User-Agent with contact email to avoid 403.
             # See: https://www.sec.gov/os/accessing-edgar-data
-            ua = f"digital-oracle/0.1 ({user_email})" if user_email else "digital-oracle/0.1"
+            ua = f"real-information-analysis/{_package_version} ({user_email})" if user_email else f"real-information-analysis/{_package_version}"
             http_client = UrllibJsonClient(headers={
                 "Accept": "application/json",
                 "User-Agent": ua,

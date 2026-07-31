@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime
 
-from digital_oracle.providers import PriceHistoryQuery, StooqProvider
+from real_information_analysis.providers import PriceHistoryQuery, StooqProvider
 
 
 class FakePriceFetcher:

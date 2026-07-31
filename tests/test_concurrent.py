@@ -1,4 +1,4 @@
-"""Tests for digital_oracle.concurrent – the gather() utility."""
+"""Tests for real_information_analysis.concurrent – the gather() utility."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import threading
 import time
 import unittest
 
-from digital_oracle.concurrent import GatherError, GatherResult, gather
+from real_information_analysis.concurrent import GatherError, GatherResult, gather
 
 
 class TestGatherBasic(unittest.TestCase):

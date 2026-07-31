@@ -1,23 +1,23 @@
 ---
-name: digital-oracle
-version: 1.0.3
+name: real-information-analysis
+version: 1.1.0
 description: "Answer prediction questions using market trading data, not opinions. Use when the user asks probability questions about geopolitics, economics, markets, industries, or any topic where real money is being traded on the outcome. Examples: 'What's the probability of WW3?', 'Will there be a recession?', 'Is AI in a bubble?', 'When will the Russia-Ukraine war end?', 'Is it a good time to buy gold?', 'Will SPY drop 5% this month?', 'Is NVDA options premium overpriced?'. The skill reads prices from prediction markets, commodities, equities, options chains, derivatives, yield curves, and currencies, then cross-validates multiple signals to produce a structured probability report."
 metadata: { "openclaw": { "emoji": "📈", "requires": { "bins": ["uv"] } } }
 ---
 
-# digital-oracle
+# real-information-analysis
 
-> Markets are efficient. Price contains all public information. Reading price = reading market consensus.
+> Markets are the least-noisy signal source available — not because price contains all information, but because every price is backed by real money. Price = belief + risk premium + liquidity + policy intervention. Reading price = auditing a biased, noisy, but incentive-aligned estimator.
 
 ## Methodology
 
-**Answer questions using only market trading data — no news, opinions, or statistical reports as causal evidence.** If something is true, some market has already priced it in.
+**Answer questions using only market trading data — no news, opinions, or statistical reports as causal evidence.** Not because markets are always right (they are not — prices embed noise, hedging premiums, and policy distortion), but because every alternative source is worse: cheaper to produce, less accountable, and impossible to audit.
 
 Five iron rules:
 
 1. **Trading data only** — prices, volume, open interest, spreads, premiums. Never cite analyst opinions.
 2. **Explicit reasoning from price to judgment** — explain clearly "why this price answers this question."
-3. **Multi-signal cross-validation** — never conclude from a single signal. At least 3 independent dimensions.
+3. **Multi-signal cross-validation** — never conclude from a single signal. At least 3 independent *information-generating mechanisms* (see the mechanism table in Step 2). Signals sharing one macro factor count as one observation, not three.
 4. **Label the time horizon of each signal** — options price 3 months, equipment orders price 3 years — don't mix them in the same vote.
 5. **Structured output** — the final report must follow the Step 5 template: layered signal tables → contradiction analysis → probability scenarios → signal consistency assessment. Do not substitute prose for structured reporting.
 
@@ -32,9 +32,22 @@ Decompose the user's question into:
 
 ### Step 2: Select signals
 
-Based on question type, select from the signal menu below. **Don't use just one category — cover at least 3.**
+Based on question type, select from the signal menu below. **Don't use just one category — cover at least 3 different mechanisms.**
+
+#### Mechanism table — count independence by mechanism, not by ticker
+
+| Mechanism | What it captures | Providers |
+|-----------|------------------|-----------|
+| Trader belief | Money-backed aggregated beliefs | Polymarket, Kalshi, options IV (YFinance/Deribit), FearGreed |
+| Informed-player action | Actual moves by those with private information | EDGAR insider trades, EDGAR capital trends |
+| Real-economy & institutional positioning | Physical flows and institutional positions | CFTC COT, commodities (Yahoo/Stooq), yield curve (Treasury), FRED spreads |
+| Slow fundamentals / base rates | Low-frequency structural facts | BIS, World Bank, FRED macro series |
+
+Signals from the same mechanism (e.g. gold + VIX + equities + BTC in a risk-off move) share a common factor — their agreement is ONE observation, not three.
 
 #### Geopolitical conflict / War risk
+
+> ⚠️ War/disaster contracts embed a hedging premium — price systematically exceeds true probability (like insurance pricing). Treat them as an upper bound on probability, not a point estimate.
 - Polymarket: Search for related event contracts (ceasefire, invasion, regime change, declaration of war)
 - Kalshi: Search for related binary contracts
 - Safe-haven assets: Gold (GC=F), silver (SI=F), Swiss franc (USDCHF=X)
@@ -106,20 +119,21 @@ Based on question type, select from the signal menu below. **Don't use just one 
 
 ### Step 3: Signal routing
 
-Before fetching data, evaluate each candidate signal from Step 2 against three criteria:
+Before fetching data, evaluate each candidate signal from Step 2 against four criteria:
 
 1. **Relevance**: Can this signal actually answer the user's specific question? (e.g., asking about Taiwan → skip CoinGecko)
 2. **Time match**: Does the signal's pricing horizon match the question's time window? (e.g., asking about 3 months → skip World Bank GDP which lags 1-2 years)
 3. **Information increment**: Does this signal provide an independent perspective not already covered by other signals? Avoid redundancy, keep complementary signals.
+4. **Price composition**: Before trusting any price, decompose it into its four possible components — belief, risk premium, liquidity, policy intervention. If premium/liquidity/policy dominates (war-hedge contracts, thin order books, policy-controlled markets like CN housing, CNY, or QE-era yield curves), either discard the signal or explicitly discount it and state by how much and why.
 
-Only keep signals that pass all three checks. This reduces noise, saves fetch time, and produces cleaner analysis.
+Only keep signals that pass all four checks. This reduces noise, saves fetch time, and produces cleaner analysis.
 
 ### Step 4: Fetch data
 
-Use digital-oracle's Python providers to fetch structured data, calling all sources in parallel with `gather()` (including web search):
+Use real-information-analysis's Python providers to fetch structured data, calling all sources in parallel with `gather()` (including web search):
 
 ```python
-from digital_oracle import (
+from real_information_analysis import (
     PolymarketProvider, PolymarketEventQuery,
     KalshiProvider, KalshiMarketQuery,
     YahooPriceProvider, PriceHistoryQuery,   # pure stdlib, no install needed
@@ -287,19 +301,23 @@ if result.errors:
 
 This is the key to report quality. Don't just summarize data — derive judgment from data.
 
-Four analysis dimensions:
+Five analysis dimensions:
 
 1. **Signal interpretation**: What is each data point saying? Derive meaning from price. Not "gold up 3%" but "the market is pricing in tail risk." e.g., Copper/Gold ratio declining → industrial demand weaker than safe-haven demand → risk-off.
+   - **Reverse test (mandatory)**: For every interpretation, write (a) at least one alternative cause that would produce the same price move, and (b) what observable data would discriminate between the two. If you cannot name a discriminator, mark the interpretation **unfalsifiable** and exclude it from the probability vote. A price move has infinitely many possible explanations — a self-consistent story is not evidence.
 
 2. **Cross-validation**: Which signals point in the same direction (resonance)? Which signals disagree (divergence)? Divergence itself is a high-value signal. e.g., gold says "disaster" but equities say "fine" → two markets pricing different time windows.
+   - **Common-factor check**: Before counting resonance, ask whether the agreeing signals share one macro factor (risk appetite, USD liquidity, rates). Gold + VIX + equities + copper/gold ratio moving together in a risk-off episode is ONE observation of ONE factor, not four independent confirmations.
 
 3. **Time alignment**: Group signals by their pricing horizon. Don't mix signals from different time windows in the same vote.
    - Short-term (3-12mo): Prediction market contracts, VIX/MOVE, price reaction patterns, executive selling
    - Medium-term (1-3yr): Leader revenue consensus, CapEx plans, VC concentration, leverage concentration
    - Long-term (3-10yr): Equipment maker orders, irreversible capital allocation, ultra-long infrastructure investment
-   - Short-term bearish + long-term bullish ≠ contradiction, = S-curve inflection
+   - Short-term bearish + long-term bullish ≠ contradiction, = S-curve inflection — **but this framing is unfalsifiable unless you state what observable signal would prove it wrong. Always attach that falsification condition.**
 
 4. **Weight judgment**: Not all signals are equally reliable. Signals backed by real money > surveys. Liquid markets > illiquid markets. Direct pricing > indirect proxies. e.g., Polymarket high-liquidity contract > CDS quotes (slow updates, low liquidity).
+
+5. **Base rate anchor**: Before finalizing any probability, state the historical base rate for this event class (e.g., great-power wars: ~2 per century → ~2%/yr unconditional; US recession in any given year: ~15%). When the market-implied probability diverges from the base rate by more than ~5x, the burden of proof is on explaining the divergence — do not default to the market. Base rates also cover truths that no market prices at all.
 
 **Core principle: Don't vote by majority.** When signals diverge:
 - Check the time dimension first — different signals price different future windows
@@ -348,8 +366,11 @@ NOT replace a missing signal with another source's data under the same label.)
 (what do short-term / medium-term / long-term signals each point to)
 
 ## Probability Estimates
-| Scenario | Probability | Basis |
-|----------|-------------|-------|
+| Scenario | Market-implied | Base rate | Final | Basis |
+|----------|---------------|-----------|-------|-------|
+(every row must show market-implied probability AND the historical base rate
+side by side — a divergence between them is itself information and must be
+explained in the Basis column, not silently resolved in favor of the market)
 
 ### Most likely path: [one-sentence summary]
 **Core logic chain:** (2-3 paragraphs, reasoning from data to conclusion)
@@ -366,16 +387,25 @@ NOT replace a missing signal with another source's data under the same label.)
 | Long-term (3-5yr) | ... | High/Medium/Low |
 | Systemic risk | ... | High/Medium/Low |
 (adjust dimensions to match the question — e.g., replace "systemic risk" with whatever dimension is most relevant)
+**Confidence cap:** geopolitical tail events (war, regime change, systemic crisis) and horizons beyond ~3 years default to Medium confidence at most — both expert and market calibration degrade sharply in these regimes (markets failed to price WWI until days before; prediction markets mispriced Brexit/Trump). Only direct, high-liquidity contracts on the specific event can lift the cap.
 
 ### Risk factors
 - **Upside risk:** what scenario would make things better than expected
 - **Downside risk:** what scenario would make things worse than expected
 
 ### Signals to monitor
-| Signal | Current value | Threshold | Meaning |
-|--------|--------------|-----------|---------|
-| ... | ... | if crosses X | then Y |
-(3-5 concrete signals with specific trigger levels and what they would imply)
+| Signal | Current value | Threshold | Meaning | Falsifies |
+|--------|--------------|-----------|---------|-----------|
+| ... | ... | if crosses X | then Y | which conclusion this would overturn |
+(3-5 concrete signals with specific trigger levels, what they would imply, AND which of your conclusions each one would falsify — every major conclusion must be attached to at least one falsification trigger)
+
+### Prediction log (mandatory)
+
+Every row of the Probability Estimates table above must ALSO be emitted as one JSON Lines record, appended to `predictions/YYYY-MM.jsonl` (month of `created_at`), one record per line:
+
+`{"question": "...", "scenario": "...", "probability": <final>, "market_implied": <or null>, "base_rate": <or null>, "created_at": "YYYY-MM-DD", "resolve_by": "YYYY-MM-DD", "resolution_criteria": "objective, checkable condition — who declares what, by when", "outcome": null}`
+
+Rules: `resolution_criteria` must be objectively checkable at resolution time (a forecast you cannot score is a forecast you did not make — do not register unfalsifiable ones); `resolve_by` must not exceed the time horizon used in the report; never edit `probability` after registration. When entries come due, resolve them (`outcome`: true/false) and run `python3 scripts/score_predictions.py` to get Brier score + calibration. Schema details: [predictions/README.md](predictions/README.md).
 
 ---
 *Data sources: [list all structured and web data sources]*
@@ -388,7 +418,7 @@ NOT replace a missing signal with another source's data under the same label.)
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
 - YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)
-- Prediction market contracts vary in liquidity — contracts with volume < $100K should be discounted
+- Prediction market contracts vary in liquidity. Discount is **relative, not absolute**: discount contracts where (a) 24h volume < 1% of the event's total volume (whale-shaped books — thin books show a whale's position, not consensus), or (b) order book depth within ±2% of midpoint < $50K (manipulable with small capital)
 - Different signals update at different frequencies: prediction markets real-time, Yahoo Finance daily delayed, Treasury weekly
 - CFTC COT updates Tuesday, published Friday. commodity_name uses uppercase ("GOLD", "CRUDE OIL", "S&P 500")
 - CoinGecko free API has rate limits (~10-30 req/min) — don't pack too many CoinGecko calls in gather

@@ -23,11 +23,11 @@ Digital Oracle 的核心哲学：**"所有公开信息都已经被价格消化�
 3. **Query 用 `@dataclass(frozen=True)`**，Result 用 `@dataclass` 或 `@dataclass(frozen=True)`
 4. **数值解析用 `_coerce_float()` / `_coerce_int()`**（从 `._coerce` 导入）
 5. **错误用 `ProviderParseError`**（从 `.base` 导入）
-6. **文件放 `digital_oracle/providers/` 目录下**
+6. **文件放 `real_information_analysis/providers/` 目录下**
 
 ### HTTP 客户端
 
-项目提供 `UrllibJsonClient`（`digital_oracle/http.py`），支持：
+项目提供 `UrllibJsonClient`（`real_information_analysis/http.py`），支持：
 - `get_json(url, params={...})` — 返回解析后的 JSON
 - `get_text(url, params={...})` — 返回原始文本（用于 CSV）
 - 自带重试（3 次）和超时（20 秒）
@@ -44,8 +44,8 @@ Digital Oracle 的核心哲学：**"所有公开信息都已经被价格消化�
 ### 导出规范
 
 新 provider 的 Query 和 Result 类型必须在以下位置注册导出：
-1. `digital_oracle/providers/__init__.py` — import 并加入 `__all__`
-2. `digital_oracle/__init__.py` — import 并加入 `__all__`
+1. `real_information_analysis/providers/__init__.py` — import 并加入 `__all__`
+2. `real_information_analysis/__init__.py` — import 并加入 `__all__`
 
 ### 文档规范
 

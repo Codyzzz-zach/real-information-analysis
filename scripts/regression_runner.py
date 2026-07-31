@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression test runner: run full digital-oracle workflow on real topics.
+"""Regression test runner: run full real-information-analysis workflow on real topics.
 
 Usage: python3 scripts/regression_runner.py <test_number>
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from digital_oracle import (
+from real_information_analysis import (
     PolymarketProvider, PolymarketEventQuery,
     KalshiProvider, KalshiMarketQuery,
     StooqProvider, PriceHistoryQuery,
@@ -40,7 +40,7 @@ cftc = CftcCotProvider()
 coingecko = CoinGeckoProvider()
 bis = BisProvider()
 wb = WorldBankProvider()
-edgar = EdgarProvider(user_email=os.environ.get("EDGAR_USER_EMAIL", "digital-oracle@example.com"))
+edgar = EdgarProvider(user_email=os.environ.get("EDGAR_USER_EMAIL", "real-information-analysis@example.com"))
 
 
 def run_test(name: str, tasks: dict) -> dict:

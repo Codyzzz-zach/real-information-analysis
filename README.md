@@ -1,8 +1,8 @@
 [English](README.en.md) | **中文**
 
-# Digital Oracle 📈
+# Real Information Analysis 📈
 
-Digital Oracle 是一款让 AI Agent 基于从海量金融数据中，挖掘出宏观事件发展趋势的开源 Skill。
+Real Information Analysis 是一款让 AI Agent 基于从海量金融数据中，挖掘出宏观事件发展趋势的开源 Skill。
 
 适用于 OpenClaw / Claude Code / Cursor / Codex。
 
@@ -12,13 +12,13 @@ Digital Oracle 是一款让 AI Agent 基于从海量金融数据中，挖掘出�
 
 价格是绝对理性的 — 当一个人要把自己的钱押在某个结果上时，他会比发一条短视频认真很多。
 
-这就是有效市场理论的核心洞察：**所有公开信息都已经被价格消化了。一切信息都在 K 线里。**
+但价格不是真理。它不包含一切信息，也混着噪声、避险溢价、流动性扭曲和政策干预。它的价值在于：**它是已知所有信息源里噪声最低、激励最对齐、且可被审计的一个。**
 
-Digital Oracle 把这个洞察变成了一个可执行的工具。它接入了 12 个权威金融数据源 — **从 Polymarket 和 Kalshi 这样的预测市场，到美国国债收益率曲线、CFTC 机构持仓、SEC 内部人交易、各国央行利率、加密衍生品。**
+Real Information Analysis 把这个判断变成了一个可执行的工具。它接入了 15 个权威金融数据源 — **从 Polymarket 和 Kalshi 这样的预测市场，到美国国债收益率曲线、CFTC 机构持仓、SEC 内部人交易、各国央行利率、加密衍生品。**
 
 它不看报纸不读新闻，不消费文章、短视频、播客，只通过从金融数据中挖掘出的价值信号，来回答房价涨跌、黄金走势、比特币周期、军事冲突概率这类问题，并给出结构化的概率估计和推理链。
 
-某种意义上，这就是新时代的数字先知。
+某种意义上，这是在噪声时代重建"真实信息"的一次尝试。
 
 ## 能回答什么问题？
 
@@ -29,7 +29,7 @@ Digital Oracle 把这个洞察变成了一个可执行的工具。它接入了 1
 - "比特币到底了吗？"
 - "NVDA 期权溢价是不是太高了？"
 
-只要有市场在定价这件事，Digital Oracle 就能给出一个基于交易数据的概率估计。
+只要有市场在定价这件事，Real Information Analysis 就能给出一个基于交易数据的概率估计。
 
 ## 数据源
 
@@ -58,26 +58,26 @@ Digital Oracle 把这个洞察变成了一个可执行的工具。它接入了 1
 ### OpenClaw
 
 ```bash
-clawhub install digital-oracle
+clawhub install real-information-analysis
 ```
 
 ### 其他 AI Agent（Claude Code / Cursor / Codex / ...）
 
 直接告诉你的 Agent：
 
-> 安装这个开源项目并读取 SKILL.md 作为你的工作指令：https://github.com/komako-workshop/digital-oracle
+> 安装这个开源项目并读取 SKILL.md 作为你的工作指令：https://github.com/komako-workshop/real-information-analysis
 
 Agent 会自行 clone 代码、阅读方法论、调用 provider。
 
 ### 前置依赖
 
 - [uv](https://docs.astral.sh/uv/) — Python 包管理器，skill 运行时用它执行 Python 脚本
-- 13 个数据源全部零外部依赖（纯 Python 标准库）。FredProvider 需要免费的 FRED API key（[注册](https://fredaccount.stlouisfed.org/apikeys)）。
+- 15 个数据源全部零外部依赖（纯 Python 标准库）。FredProvider 需要免费的 FRED API key（[注册](https://fredaccount.stlouisfed.org/apikeys)）。
 
 ## 工作原理
 
 1. **理解问题** — 拆解核心变量、时间窗口、可定价性
-2. **选择信号** — 根据问题类型选择 3+ 个独立数据源
+2. **选择信号** — 根据问题类型选择 3+ 个独立机制的信号源
 3. **并行拉取** — 用 `gather()` 同时调用多个 provider
 4. **矛盾推理** — 找不同市场之间的分歧，解释为什么它们可以同时正确
 5. **输出报告** — 结构化的多层信号表格 + 概率估计 + 场景分析
@@ -85,13 +85,15 @@ Agent 会自行 clone 代码、阅读方法论、调用 provider。
 ## 项目结构
 
 ```
-digital-oracle/
+real-information-analysis/
 ├── SKILL.md                # Skill 定义（OpenClaw 读取这个文件）
-├── digital_oracle/         # Python 源码
+├── real_information_analysis/  # Python 源码
 │   ├── concurrent.py       # 并行执行工具
 │   ├── http.py             # HTTP 客户端抽象
 │   ├── snapshots.py        # HTTP 响应录制/回放（测试用）
-│   └── providers/          # 12 个数据 provider
+│   ├── scoring.py          # 预测评分（Brier score + 校准）
+│   └── providers/          # 15 个数据 provider
+├── predictions/            # 预测登记簿（jsonl，每份报告的概率估计都登记在此）
 ├── references/             # API 速查
 │   ├── providers.md        # Provider API 参考
 │   └── symbols.md          # 交易符号目录
@@ -101,10 +103,11 @@ digital-oracle/
 
 ## 设计原则
 
-- **零依赖优先** — 11/12 个 provider 只用 Python 标准库，无需 `pip install`
+- **零依赖优先** — 全部 15 个 provider 只用 Python 标准库，无需 `pip install`
 - **依赖注入** — 所有 provider 接受可选的 `http_client` 参数，方便测试
 - **部分失败容忍** — 一个数据源挂了不影响其他结果
 - **快照测试** — 录制真实 HTTP 响应，CI 里无网络也能跑测试
+- **可证伪** — 每份报告的概率估计登记进 `predictions/`，到期结算，用 Brier score 裁决方法论本身
 
 ## License
 

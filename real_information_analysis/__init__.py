@@ -1,3 +1,5 @@
+from ._version import __version__
+
 from .providers import (
     BisCreditGap,
     BisCreditGapQuery,
@@ -91,6 +93,16 @@ from .providers import (
     YieldPoint,
 )
 from .concurrent import GatherError, GatherResult, gather
+from .scoring import (
+    CalibrationBucket,
+    Prediction,
+    PredictionLogError,
+    ScoreReport,
+    load_predictions,
+    parse_prediction,
+    render_report,
+    score_predictions,
+)
 from .snapshots import RecordingHttpClient, ReplayHttpClient, SnapshotMissError
 
 __all__ = [
@@ -99,6 +111,7 @@ __all__ = [
     "BisPolicyRate",
     "BisProvider",
     "BisRateQuery",
+    "CalibrationBucket",
     "CftcCotProvider",
     "CftcCotQuery",
     "CftcCotReport",
@@ -158,12 +171,16 @@ __all__ = [
     "PolymarketEventQuery",
     "PolymarketMarket",
     "PolymarketProvider",
+    "Prediction",
+    "PredictionLogError",
     "PriceBar",
+    "parse_prediction",
     "PriceHistory",
     "PriceHistoryQuery",
     "ProviderMetadata",
     "RecordingHttpClient",
     "ReplayHttpClient",
+    "ScoreReport",
     "SignalProvider",
     "StooqProvider",
     "SnapshotMissError",
@@ -189,5 +206,8 @@ __all__ = [
     "OptionsChainQuery",
     "OptionsExpirations",
     "black_scholes_greeks",
+    "load_predictions",
+    "render_report",
     "resolve_series_id",
+    "score_predictions",
 ]

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from digital_oracle.providers._coerce import _coerce_float, _coerce_int
+from real_information_analysis.providers._coerce import _coerce_float, _coerce_int
 
 
 class TestCoerceFloat(unittest.TestCase):

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from digital_oracle.providers import KalshiMarketQuery, KalshiProvider
+from real_information_analysis.providers import KalshiMarketQuery, KalshiProvider
 
 
 def _fixture_json(name: str) -> Any:

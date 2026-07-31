@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from digital_oracle.providers.base import ProviderParseError
-from digital_oracle.providers.fear_greed import FearGreedProvider
+from real_information_analysis.providers.base import ProviderParseError
+from real_information_analysis.providers.fear_greed import FearGreedProvider
 
 SAMPLE_RESPONSE = {
     "fear_and_greed": {

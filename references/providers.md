@@ -3,7 +3,7 @@
 全部 provider 纯 Python 标准库实现，零外部依赖。FredProvider 需要免费 FRED API key。
 
 ```python
-from digital_oracle import (
+from real_information_analysis import (
     PolymarketProvider, PolymarketEventQuery,
     KalshiProvider, KalshiMarketQuery,
     YahooPriceProvider, PriceHistoryQuery,   # pure stdlib
@@ -171,7 +171,7 @@ result = web.search("VIX index current level")
 # result.text() -> 渲染为可读文本块
 
 # 也可传 WebSearchQuery 控制结果数
-from digital_oracle import WebSearchQuery
+from real_information_analysis import WebSearchQuery
 result = web.search(WebSearchQuery(query="US high yield OAS spread", max_results=3))
 
 # 抓取页面正文
@@ -390,7 +390,7 @@ chain.total_open_interest       # 总持仓量
 chain.max_pain()                # 最大痛点行权价
 
 # 独立使用 Black-Scholes Greeks
-from digital_oracle import black_scholes_greeks
+from real_information_analysis import black_scholes_greeks
 g = black_scholes_greeks(S=150, K=145, T=0.1, r=0.045, sigma=0.25, option_type="call")
 # g.delta, g.gamma, g.theta, g.vega
 ```
@@ -455,7 +455,7 @@ results = fred.search_series(FredSearchQuery(search_text="volatility", limit=10)
 
 **快捷别名：** `resolve_series_id()` 可将常用名称转为 series ID：
 ```python
-from digital_oracle import resolve_series_id, FRED_SERIES
+from real_information_analysis import resolve_series_id, FRED_SERIES
 
 resolve_series_id("VIX")     # → "VIXCLS"
 resolve_series_id("HY_OAS")  # → "BAMLH0A0HYM2"

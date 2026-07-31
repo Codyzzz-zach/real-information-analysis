@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from io import StringIO
 from typing import Protocol
 
-from digital_oracle.http import TextHttpClient, UrllibJsonClient
+from real_information_analysis.http import TextHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float
 from .base import ProviderParseError, SignalProvider

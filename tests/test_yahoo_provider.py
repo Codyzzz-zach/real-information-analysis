@@ -12,13 +12,13 @@ from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import patch
 
-from digital_oracle.providers.base import ProviderError
-from digital_oracle.providers.yahoo import (
+from real_information_analysis.providers.base import ProviderError
+from real_information_analysis.providers.yahoo import (
     YahooPriceProvider,
     _DirectYahooPriceFetcher,
     _array_get,
 )
-from digital_oracle.providers.prices import PriceHistoryQuery
+from real_information_analysis.providers.prices import PriceHistoryQuery
 
 
 # ---------------------------------------------------------------------------

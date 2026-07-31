@@ -12,8 +12,8 @@ import unittest
 from typing import Any, Mapping
 from unittest.mock import patch
 
-from digital_oracle.providers.base import ProviderParseError
-from digital_oracle.providers.fred import (
+from real_information_analysis.providers.base import ProviderParseError
+from real_information_analysis.providers.fred import (
     FRED_SERIES,
     FredProvider,
     FredSearchQuery,
