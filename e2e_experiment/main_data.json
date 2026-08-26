@@ -1,0 +1,1513 @@
+{
+  "probed_at": "2026-08-27T02:56:12+0800",
+  "elapsed_seconds": 62.1,
+  "bis_rates": {
+    "status": "OK",
+    "points": [
+      {
+        "country": "CN",
+        "period": "2023-01",
+        "rate": 3.65
+      },
+      {
+        "country": "CN",
+        "period": "2023-02",
+        "rate": 3.65
+      },
+      {
+        "country": "CN",
+        "period": "2023-03",
+        "rate": 3.65
+      },
+      {
+        "country": "CN",
+        "period": "2023-04",
+        "rate": 3.65
+      },
+      {
+        "country": "CN",
+        "period": "2023-05",
+        "rate": 3.65
+      },
+      {
+        "country": "CN",
+        "period": "2023-06",
+        "rate": 3.55
+      },
+      {
+        "country": "CN",
+        "period": "2023-07",
+        "rate": 3.55
+      },
+      {
+        "country": "CN",
+        "period": "2023-08",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2023-09",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2023-10",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2023-11",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2023-12",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-01",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-02",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-03",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-04",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-05",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-06",
+        "rate": 3.45
+      },
+      {
+        "country": "CN",
+        "period": "2024-07",
+        "rate": 3.35
+      },
+      {
+        "country": "CN",
+        "period": "2024-08",
+        "rate": 3.35
+      },
+      {
+        "country": "CN",
+        "period": "2024-09",
+        "rate": 3.35
+      },
+      {
+        "country": "CN",
+        "period": "2024-10",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2024-11",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2024-12",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2025-01",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2025-02",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2025-03",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2025-04",
+        "rate": 3.1
+      },
+      {
+        "country": "CN",
+        "period": "2025-05",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-06",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-07",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-08",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-09",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-10",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-11",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2025-12",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-01",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-02",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-03",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-04",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-05",
+        "rate": 3.0
+      },
+      {
+        "country": "CN",
+        "period": "2026-06",
+        "rate": 3.0
+      },
+      {
+        "country": "US",
+        "period": "2023-01",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2023-02",
+        "rate": 4.625
+      },
+      {
+        "country": "US",
+        "period": "2023-03",
+        "rate": 4.875
+      },
+      {
+        "country": "US",
+        "period": "2023-04",
+        "rate": 4.875
+      },
+      {
+        "country": "US",
+        "period": "2023-05",
+        "rate": 5.125
+      },
+      {
+        "country": "US",
+        "period": "2023-06",
+        "rate": 5.125
+      },
+      {
+        "country": "US",
+        "period": "2023-07",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2023-08",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2023-09",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2023-10",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2023-11",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2023-12",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-01",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-02",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-03",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-04",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-05",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-06",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-07",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-08",
+        "rate": 5.375
+      },
+      {
+        "country": "US",
+        "period": "2024-09",
+        "rate": 4.875
+      },
+      {
+        "country": "US",
+        "period": "2024-10",
+        "rate": 4.875
+      },
+      {
+        "country": "US",
+        "period": "2024-11",
+        "rate": 4.625
+      },
+      {
+        "country": "US",
+        "period": "2024-12",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-01",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-02",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-03",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-04",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-05",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-06",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-07",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-08",
+        "rate": 4.375
+      },
+      {
+        "country": "US",
+        "period": "2025-09",
+        "rate": 4.125
+      },
+      {
+        "country": "US",
+        "period": "2025-10",
+        "rate": 3.875
+      },
+      {
+        "country": "US",
+        "period": "2025-11",
+        "rate": 3.875
+      },
+      {
+        "country": "US",
+        "period": "2025-12",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-01",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-02",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-03",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-04",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-05",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-06",
+        "rate": 3.625
+      },
+      {
+        "country": "US",
+        "period": "2026-07",
+        "rate": 3.625
+      }
+    ]
+  },
+  "btc_basis": {
+    "status": "MISSING",
+    "error": "HttpClientError: request failed: https://www.deribit.com/api/v2/public/get_instruments?currency=BTC&kind=future&expired=false"
+  },
+  "cn_rd_capex": {
+    "status": "OK",
+    "companies": [
+      {
+        "ticker": "BABA",
+        "company_name": "Alibaba Group Holding Ltd",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 9645000000.0,
+        "yoy_growth_pct": 22.460639918740476,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 8749000000.0,
+            "period_end": "2022-03-31"
+          },
+          {
+            "fy": 2023,
+            "value": 8263000000.0,
+            "period_end": "2023-03-31"
+          },
+          {
+            "fy": 2024,
+            "value": 7237000000.0,
+            "period_end": "2024-03-31"
+          },
+          {
+            "fy": 2025,
+            "value": 7876000000.0,
+            "period_end": "2025-03-31"
+          },
+          {
+            "fy": 2026,
+            "value": 9645000000.0,
+            "period_end": "2026-03-31"
+          }
+        ]
+      },
+      {
+        "ticker": "BIDU",
+        "company_name": "Baidu, Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 2922000000.0,
+        "yoy_growth_pct": -3.6279683377308705,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 3914000000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 3380000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 3407000000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 3032000000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 2922000000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "PDD",
+        "company_name": "PDD Holdings Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 2358920000.0,
+        "yoy_growth_pct": 36.01372291813818,
+        "history": [
+          {
+            "fy": 2020,
+            "value": 1411134000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 1505642000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 1542610000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 1734325000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 2358920000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "JD",
+        "company_name": "JD.com, Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 3179000000.0,
+        "yoy_growth_pct": 36.262323189027,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 2563000000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 2449000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 2309000000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 2333000000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 3179000000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "NTES",
+        "company_name": "NetEase, Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 2533799000.0,
+        "yoy_growth_pct": 5.535866089602643,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 2208830000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 2180452000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 2321851000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 2400889000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 2533799000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "BILI",
+        "company_name": "Bilibili Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 505282000.0,
+        "yoy_growth_pct": 0.08120870240377759,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 445636000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 690912000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 629230000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 504872000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 505282000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      }
+    ]
+  },
+  "fear_greed": {
+    "status": "OK",
+    "score": 55.0857142857143,
+    "rating": "greed"
+  },
+  "insider_baba": {
+    "status": "OK",
+    "trades": [
+      {
+        "reporting_owner": "Tsai Joseph C",
+        "transaction_label": "Open-market purchase",
+        "is_purchase": true,
+        "is_sale": false,
+        "shares": 720000.0,
+        "price_per_share": 14.47,
+        "transaction_date": "2026-08-25"
+      },
+      {
+        "reporting_owner": "Tsai Joseph C",
+        "transaction_label": "Open-market purchase",
+        "is_purchase": true,
+        "is_sale": false,
+        "shares": 720000.0,
+        "price_per_share": 14.29,
+        "transaction_date": "2026-08-24"
+      },
+      {
+        "reporting_owner": "Wu Yongming",
+        "transaction_label": "Open-market purchase",
+        "is_purchase": true,
+        "is_sale": false,
+        "shares": 350000.0,
+        "price_per_share": 14.24,
+        "transaction_date": "2026-08-24"
+      },
+      {
+        "reporting_owner": "Tsai Joseph C",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 3333.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-07-01"
+      },
+      {
+        "reporting_owner": "Wu Yongming",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 13333.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-07-01"
+      },
+      {
+        "reporting_owner": "EVANS J. MICHAEL",
+        "transaction_label": "Open-market sale",
+        "is_purchase": false,
+        "is_sale": true,
+        "shares": 692992.0,
+        "price_per_share": 94.92,
+        "transaction_date": "2026-06-29"
+      },
+      {
+        "reporting_owner": "Jiang Fan (FJ)",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 7336.0,
+        "price_per_share": 12.1,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "Xu Hong",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 10000.0,
+        "price_per_share": 12.15,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "Yu Siying",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 3336.0,
+        "price_per_share": 12.1,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "Jiang Fang",
+        "transaction_label": "M",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1672.0,
+        "price_per_share": 12.09,
+        "transaction_date": "2026-06-25"
+      }
+    ]
+  },
+  "insider_nvda": {
+    "status": "OK",
+    "trades": [
+      {
+        "reporting_owner": "Puri Ajay K",
+        "transaction_label": "Unknown",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": null,
+        "price_per_share": null,
+        "transaction_date": null
+      },
+      {
+        "reporting_owner": "NORA JOHNSON SUZANNE M",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1262.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-08-10"
+      },
+      {
+        "reporting_owner": "COXE TENCH",
+        "transaction_label": "Gift",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 500000.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-08-05"
+      },
+      {
+        "reporting_owner": "COXE TENCH",
+        "transaction_label": "Gift",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 500000.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-07-01"
+      },
+      {
+        "reporting_owner": "STEVENS MARK A",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "Shah Aarti S.",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "SEAWELL A BROOKE",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "Neal Stephen C",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "LORA MELISSA",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      },
+      {
+        "reporting_owner": "JONES HARVEY C",
+        "transaction_label": "Grant/award",
+        "is_purchase": false,
+        "is_sale": false,
+        "shares": 1211.0,
+        "price_per_share": 0.0,
+        "transaction_date": "2026-06-25"
+      }
+    ]
+  },
+  "kalshi_markets": {
+    "status": "MISSING",
+    "error": "HttpClientError: request failed: https://api.elections.kalshi.com/trade-api/v2/markets?limit=20&status=open&mve_filter=exclude"
+  },
+  "pm_ai_events": {
+    "status": "MISSING",
+    "error": "HttpClientError: request failed: https://gamma-api.polymarket.com/events?limit=8&offset=0&active=true&closed=false&order=volume24hr&ascending=false&tag_slug=artificial-intelligence"
+  },
+  "treasury_yield": {
+    "status": "OK",
+    "curve_kind": "nominal",
+    "date": "08/25/2026",
+    "points": [
+      {
+        "tenor": "1M",
+        "value": 3.79
+      },
+      {
+        "tenor": "1.5M",
+        "value": 3.78
+      },
+      {
+        "tenor": "2M",
+        "value": 3.8
+      },
+      {
+        "tenor": "3M",
+        "value": 3.86
+      },
+      {
+        "tenor": "4M",
+        "value": 3.89
+      },
+      {
+        "tenor": "6M",
+        "value": 3.95
+      },
+      {
+        "tenor": "1Y",
+        "value": 4.01
+      },
+      {
+        "tenor": "2Y",
+        "value": 4.17
+      },
+      {
+        "tenor": "3Y",
+        "value": 4.25
+      },
+      {
+        "tenor": "5Y",
+        "value": 4.35
+      },
+      {
+        "tenor": "7Y",
+        "value": 4.48
+      },
+      {
+        "tenor": "10Y",
+        "value": 4.64
+      },
+      {
+        "tenor": "20Y",
+        "value": 5.16
+      },
+      {
+        "tenor": "30Y",
+        "value": 5.17
+      }
+    ]
+  },
+  "us_rd_capex": {
+    "status": "OK",
+    "companies": [
+      {
+        "ticker": "NVDA",
+        "company_name": "NVIDIA CORP",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 18497000000.0,
+        "yoy_growth_pct": 43.23215115378659,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 5268000000.0,
+            "period_end": "2022-01-30"
+          },
+          {
+            "fy": 2023,
+            "value": 7339000000.0,
+            "period_end": "2023-01-29"
+          },
+          {
+            "fy": 2024,
+            "value": 8675000000.0,
+            "period_end": "2024-01-28"
+          },
+          {
+            "fy": 2025,
+            "value": 12914000000.0,
+            "period_end": "2025-01-26"
+          },
+          {
+            "fy": 2026,
+            "value": 18497000000.0,
+            "period_end": "2026-01-25"
+          }
+        ]
+      },
+      {
+        "ticker": "AMD",
+        "company_name": "ADVANCED MICRO DEVICES INC",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 8091000000.0,
+        "yoy_growth_pct": 25.325278810408925,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 2845000000.0,
+            "period_end": "2021-12-25"
+          },
+          {
+            "fy": 2022,
+            "value": 5005000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 5872000000.0,
+            "period_end": "2023-12-30"
+          },
+          {
+            "fy": 2024,
+            "value": 6456000000.0,
+            "period_end": "2024-12-28"
+          },
+          {
+            "fy": 2025,
+            "value": 8091000000.0,
+            "period_end": "2025-12-27"
+          }
+        ]
+      },
+      {
+        "ticker": "INTC",
+        "company_name": "INTEL CORP",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 13774000000.0,
+        "yoy_growth_pct": -16.753293847455577,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 15190000000.0,
+            "period_end": "2021-12-25"
+          },
+          {
+            "fy": 2022,
+            "value": 17528000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 16046000000.0,
+            "period_end": "2023-12-30"
+          },
+          {
+            "fy": 2024,
+            "value": 16546000000.0,
+            "period_end": "2024-12-28"
+          },
+          {
+            "fy": 2025,
+            "value": 13774000000.0,
+            "period_end": "2025-12-27"
+          }
+        ]
+      },
+      {
+        "ticker": "AVGO",
+        "company_name": "Broadcom Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 10977000000.0,
+        "yoy_growth_pct": 17.90547798066595,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 4854000000.0,
+            "period_end": "2021-10-31"
+          },
+          {
+            "fy": 2022,
+            "value": 4919000000.0,
+            "period_end": "2022-10-30"
+          },
+          {
+            "fy": 2023,
+            "value": 5253000000.0,
+            "period_end": "2023-10-29"
+          },
+          {
+            "fy": 2024,
+            "value": 9310000000.0,
+            "period_end": "2024-11-03"
+          },
+          {
+            "fy": 2025,
+            "value": 10977000000.0,
+            "period_end": "2025-11-02"
+          }
+        ]
+      },
+      {
+        "ticker": "QCOM",
+        "company_name": "QUALCOMM INC/DE",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 9042000000.0,
+        "yoy_growth_pct": 1.675475092769594,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 7176000000.0,
+            "period_end": "2021-09-26"
+          },
+          {
+            "fy": 2022,
+            "value": 8194000000.0,
+            "period_end": "2022-09-25"
+          },
+          {
+            "fy": 2023,
+            "value": 8818000000.0,
+            "period_end": "2023-09-24"
+          },
+          {
+            "fy": 2024,
+            "value": 8893000000.0,
+            "period_end": "2024-09-29"
+          },
+          {
+            "fy": 2025,
+            "value": 9042000000.0,
+            "period_end": "2025-09-28"
+          }
+        ]
+      },
+      {
+        "ticker": "MRVL",
+        "company_name": "Marvell Technology, Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 2075200000.0,
+        "yoy_growth_pct": 6.398687448728466,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 1424306000.0,
+            "period_end": "2022-01-29"
+          },
+          {
+            "fy": 2023,
+            "value": 1784300000.0,
+            "period_end": "2023-01-28"
+          },
+          {
+            "fy": 2024,
+            "value": 1896200000.0,
+            "period_end": "2024-02-03"
+          },
+          {
+            "fy": 2025,
+            "value": 1950400000.0,
+            "period_end": "2025-02-01"
+          },
+          {
+            "fy": 2026,
+            "value": 2075200000.0,
+            "period_end": "2026-01-31"
+          }
+        ]
+      },
+      {
+        "ticker": "ASML",
+        "company_name": "ASML HOLDING NV",
+        "concept": "R&D",
+        "currency": "EUR",
+        "latest_fiscal_year": 2025,
+        "latest_value": 4698800000.0,
+        "yoy_growth_pct": 9.180472616585728,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 2547000000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 3253500000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 3980600000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 4303700000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 4698800000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "AMAT",
+        "company_name": "APPLIED MATERIALS INC /DE",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 3570000000.0,
+        "yoy_growth_pct": 10.42375502629137,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 2485000000.0,
+            "period_end": "2021-10-31"
+          },
+          {
+            "fy": 2022,
+            "value": 2771000000.0,
+            "period_end": "2022-10-30"
+          },
+          {
+            "fy": 2023,
+            "value": 3102000000.0,
+            "period_end": "2023-10-29"
+          },
+          {
+            "fy": 2024,
+            "value": 3233000000.0,
+            "period_end": "2024-10-27"
+          },
+          {
+            "fy": 2025,
+            "value": 3570000000.0,
+            "period_end": "2025-10-26"
+          }
+        ]
+      },
+      {
+        "ticker": "KLAC",
+        "company_name": "KLA CORP",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 1532118000.0,
+        "yoy_growth_pct": 12.628075163893573,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 1105254000.0,
+            "period_end": "2022-06-30"
+          },
+          {
+            "fy": 2023,
+            "value": 1296727000.0,
+            "period_end": "2023-06-30"
+          },
+          {
+            "fy": 2024,
+            "value": 1278981000.0,
+            "period_end": "2024-06-30"
+          },
+          {
+            "fy": 2025,
+            "value": 1360334000.0,
+            "period_end": "2025-06-30"
+          },
+          {
+            "fy": 2026,
+            "value": 1532118000.0,
+            "period_end": "2026-06-30"
+          }
+        ]
+      },
+      {
+        "ticker": "LRCX",
+        "company_name": "LAM RESEARCH CORP",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 2375873000.0,
+        "yoy_growth_pct": 13.331794177315542,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 1604248000.0,
+            "period_end": "2022-06-26"
+          },
+          {
+            "fy": 2023,
+            "value": 1727162000.0,
+            "period_end": "2023-06-25"
+          },
+          {
+            "fy": 2024,
+            "value": 1902444000.0,
+            "period_end": "2024-06-30"
+          },
+          {
+            "fy": 2025,
+            "value": 2096387000.0,
+            "period_end": "2025-06-29"
+          },
+          {
+            "fy": 2026,
+            "value": 2375873000.0,
+            "period_end": "2026-06-28"
+          }
+        ]
+      },
+      {
+        "ticker": "MSFT",
+        "company_name": "MICROSOFT CORP",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2026,
+        "latest_value": 35562000000.0,
+        "yoy_growth_pct": 9.461955183452352,
+        "history": [
+          {
+            "fy": 2022,
+            "value": 24512000000.0,
+            "period_end": "2022-06-30"
+          },
+          {
+            "fy": 2023,
+            "value": 27195000000.0,
+            "period_end": "2023-06-30"
+          },
+          {
+            "fy": 2024,
+            "value": 29510000000.0,
+            "period_end": "2024-06-30"
+          },
+          {
+            "fy": 2025,
+            "value": 32488000000.0,
+            "period_end": "2025-06-30"
+          },
+          {
+            "fy": 2026,
+            "value": 35562000000.0,
+            "period_end": "2026-06-30"
+          }
+        ]
+      },
+      {
+        "ticker": "GOOGL",
+        "company_name": "Alphabet Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 61087000000.0,
+        "yoy_growth_pct": 23.843409155414992,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 31562000000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 39500000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 45427000000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 49326000000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 61087000000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "ticker": "META",
+        "company_name": "Meta Platforms, Inc.",
+        "concept": "R&D",
+        "currency": "USD",
+        "latest_fiscal_year": 2025,
+        "latest_value": 57372000000.0,
+        "yoy_growth_pct": 30.768354113008,
+        "history": [
+          {
+            "fy": 2021,
+            "value": 24655000000.0,
+            "period_end": "2021-12-31"
+          },
+          {
+            "fy": 2022,
+            "value": 35338000000.0,
+            "period_end": "2022-12-31"
+          },
+          {
+            "fy": 2023,
+            "value": 38483000000.0,
+            "period_end": "2023-12-31"
+          },
+          {
+            "fy": 2024,
+            "value": 43873000000.0,
+            "period_end": "2024-12-31"
+          },
+          {
+            "fy": 2025,
+            "value": 57372000000.0,
+            "period_end": "2025-12-31"
+          }
+        ]
+      }
+    ]
+  },
+  "wb_gdp": {
+    "status": "OK",
+    "points": [
+      {
+        "country_code": "CN",
+        "date": "2025",
+        "value": 4.95994886240992
+      },
+      {
+        "country_code": "CN",
+        "date": "2024",
+        "value": 4.95830378788091
+      },
+      {
+        "country_code": "CN",
+        "date": "2023",
+        "value": 5.41600334492955
+      },
+      {
+        "country_code": "CN",
+        "date": "2022",
+        "value": 3.13385438394069
+      },
+      {
+        "country_code": "CN",
+        "date": "2021",
+        "value": 8.57038414981781
+      },
+      {
+        "country_code": "CN",
+        "date": "2020",
+        "value": 2.33950385203023
+      },
+      {
+        "country_code": "CN",
+        "date": "2019",
+        "value": 6.06737806333672
+      },
+      {
+        "country_code": "CN",
+        "date": "2018",
+        "value": 6.757806142324
+      },
+      {
+        "country_code": "CN",
+        "date": "2017",
+        "value": 6.89123916636191
+      },
+      {
+        "country_code": "CN",
+        "date": "2016",
+        "value": 6.7736886867727
+      },
+      {
+        "country_code": "CN",
+        "date": "2015",
+        "value": 6.98162255562367
+      },
+      {
+        "country_code": "US",
+        "date": "2025",
+        "value": 2.16138195623856
+      },
+      {
+        "country_code": "US",
+        "date": "2024",
+        "value": 2.79318715363841
+      },
+      {
+        "country_code": "US",
+        "date": "2023",
+        "value": 2.93436322440155
+      },
+      {
+        "country_code": "US",
+        "date": "2022",
+        "value": 2.52421385073222
+      },
+      {
+        "country_code": "US",
+        "date": "2021",
+        "value": 6.15202247867526
+      },
+      {
+        "country_code": "US",
+        "date": "2020",
+        "value": -2.081375977796
+      },
+      {
+        "country_code": "US",
+        "date": "2019",
+        "value": 2.58382533052225
+      },
+      {
+        "country_code": "US",
+        "date": "2018",
+        "value": 2.96650506701943
+      },
+      {
+        "country_code": "US",
+        "date": "2017",
+        "value": 2.45762230126449
+      },
+      {
+        "country_code": "US",
+        "date": "2016",
+        "value": 1.81945147909089
+      },
+      {
+        "country_code": "US",
+        "date": "2015",
+        "value": 2.94555045227337
+      }
+    ]
+  }
+}

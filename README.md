@@ -65,7 +65,7 @@ clawhub install real-information-analysis
 
 直接告诉你的 Agent：
 
-> 安装这个开源项目并读取 SKILL.md 作为你的工作指令：https://github.com/komako-workshop/real-information-analysis
+> 安装这个开源项目并读取 SKILL.md 作为你的工作指令：https://github.com/Codyzzz-zach/real-information-analysis
 
 Agent 会自行 clone 代码、阅读方法论、调用 provider。
 
@@ -98,7 +98,8 @@ real-information-analysis/
 │   ├── providers.md        # Provider API 参考
 │   └── symbols.md          # 交易符号目录
 ├── scripts/                # Demo 脚本
-└── tests/                  # 单元测试 + fixtures
+├── tests/                  # 单元测试 + fixtures（314 个，离线可跑）
+└── e2e_experiment/         # 端到端验收实验（连通性探针 + 验收报告）
 ```
 
 ## 设计原则

@@ -1,8 +1,8 @@
-# Digital Oracle — 新数据源迭代计划
+# Real Information Analysis — 新数据源迭代计划
 
 ## 产品定位
 
-Digital Oracle 的核心哲学：**"所有公开信息都已经被价格消化了。一切信息都在 K 线里。"**
+Real Information Analysis 的核心哲学：**"所有公开信息都已经被价格消化了。一切信息都在 K 线里。"**
 
 新数据源的标准：
 - 必须是**真金白银的市场交易数据**（价格、利差、波动率、持仓量），不是观点/预测/投票
@@ -219,7 +219,7 @@ CNN Fear & Greed Index 是一个**完全基于市场交易数据衍生**的综�
 6. 市场波动率（VIX 偏离度）
 7. 避险需求（股票 vs 债券收益率差）
 
-**它不是观点聚合，是 7 个价格信号的合成**，完全符合 Digital Oracle 的产品哲学。
+**它不是观点聚合，是 7 个价格信号的合成**，完全符合 Real Information Analysis 的产品哲学。
 
 ### API 概要
 

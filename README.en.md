@@ -65,7 +65,7 @@ clawhub install real-information-analysis
 
 Just tell your agent:
 
-> Install this open-source project and read SKILL.md as your working instructions: https://github.com/komako-workshop/real-information-analysis
+> Install this open-source project and read SKILL.md as your working instructions: https://github.com/Codyzzz-zach/real-information-analysis
 
 The agent will clone the repo, read the methodology, and call the providers on its own.
 
@@ -98,7 +98,8 @@ real-information-analysis/
 │   ├── providers.md        # Provider API docs
 │   └── symbols.md          # Trading symbol directory
 ├── scripts/                # Demo scripts
-└── tests/                  # Unit tests + fixtures
+├── tests/                  # Unit tests + fixtures (314, fully offline)
+└── e2e_experiment/         # End-to-end acceptance experiment (connectivity probe + report)
 ```
 
 ## Design Principles

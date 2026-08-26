@@ -1,0 +1,81 @@
+{
+  "probed_at": "2026-08-27T02:51:50+0800",
+  "elapsed_seconds": 62.1,
+  "matrix": [
+    {
+      "provider": "bis",
+      "status": "OK",
+      "summary": "list[61]"
+    },
+    {
+      "provider": "cftc",
+      "status": "FAIL",
+      "error": "HttpClientError: request failed: https://publicreporting.cftc.gov/resource/72hh-3qpy.json?%24order=report_date_as_yyyy_mm_dd+DESC&%24limit=2&%24where=commodity_name+like+%27%25GOLD%25%27"
+    },
+    {
+      "provider": "coingecko",
+      "status": "FAIL",
+      "error": "TimeoutError: task 'coingecko' did not complete within 45s"
+    },
+    {
+      "provider": "deribit",
+      "status": "OK",
+      "summary": "DeribitFuturesTermStructure(12 pts)"
+    },
+    {
+      "provider": "edgar_insider",
+      "status": "OK",
+      "summary": "list[3]"
+    },
+    {
+      "provider": "fear_greed",
+      "status": "OK",
+      "summary": "FearGreedSnapshot(score=55.0857142857143, greed)"
+    },
+    {
+      "provider": "fred",
+      "status": "FAIL",
+      "error": "HttpClientError: request failed: https://api.stlouisfed.org/fred/series?series_id=VIXCLS&api_key=***&file_type=json"
+    },
+    {
+      "provider": "kalshi",
+      "status": "FAIL",
+      "error": "TimeoutError: task 'kalshi' did not complete within 45s"
+    },
+    {
+      "provider": "polymarket",
+      "status": "FAIL",
+      "error": "HttpClientError: request failed: https://gamma-api.polymarket.com/events?limit=3&offset=0&active=true&closed=false&order=volume24hr&ascending=false&tag_slug=ai"
+    },
+    {
+      "provider": "stooq",
+      "status": "FAIL",
+      "error": "ProviderError: Yahoo chart API request failed: https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=1mo&interval=1d"
+    },
+    {
+      "provider": "treasury",
+      "status": "OK",
+      "summary": "YieldCurveSnapshot(14 pts)"
+    },
+    {
+      "provider": "web_search",
+      "status": "FAIL",
+      "error": "TimeoutError: task 'web_search' did not complete within 45s"
+    },
+    {
+      "provider": "worldbank",
+      "status": "OK",
+      "summary": "WorldBankResult(22 pts)"
+    },
+    {
+      "provider": "yahoo_price",
+      "status": "FAIL",
+      "error": "ProviderError: Yahoo chart API request failed: https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=1mo&interval=1d"
+    },
+    {
+      "provider": "yfinance_options",
+      "status": "FAIL",
+      "error": "ProviderError: Yahoo crumb endpoint returned HTTP 403; options chain unavailable"
+    }
+  ]
+}
