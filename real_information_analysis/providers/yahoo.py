@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from http.client import HTTPException as _HttpConnError
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from .base import ProviderError, ProviderParseError, SignalProvider
@@ -35,8 +35,11 @@ def _limit_to_period(limit: int | None, interval: str) -> str:
     Yahoo's chart API uses ``range`` strings like ``"1mo"``, ``"6mo"`` etc.
     rather than explicit row counts, so we approximate conservatively.
     """
-    if limit is None or limit <= 0:
+    if limit is None:
         return "max"
+    if limit == 0:
+        # The caller wants no bars at all - fetch the smallest range.
+        return "5d"
 
     if interval in ("w", "1wk"):
         days = limit * 7
@@ -113,7 +116,7 @@ class _DirectYahooPriceFetcher:
         interval: str,
     ) -> list[dict[str, Any]]:
         params = urlencode({"range": period, "interval": interval})
-        url = f"{self._BASE_URL}/{symbol}?{params}"
+        url = f"{self._BASE_URL}/{quote(symbol, safe='')}?{params}"
         data = self._get_json(url)
 
         results = data.get("chart", {}).get("result")
@@ -127,13 +130,13 @@ class _DirectYahooPriceFetcher:
 
         result = results[0]
         timestamps = result.get("timestamp") or []
-        quote = (result.get("indicators", {}).get("quote") or [{}])[0]
+        quote_block = (result.get("indicators", {}).get("quote") or [{}])[0]
 
-        opens = quote.get("open") or []
-        highs = quote.get("high") or []
-        lows = quote.get("low") or []
-        closes = quote.get("close") or []
-        volumes = quote.get("volume") or []
+        opens = quote_block.get("open") or []
+        highs = quote_block.get("high") or []
+        lows = quote_block.get("low") or []
+        closes = quote_block.get("close") or []
+        volumes = quote_block.get("volume") or []
 
         rows: list[dict[str, Any]] = []
         for i, ts in enumerate(timestamps):
@@ -222,6 +225,8 @@ class YahooPriceProvider(SignalProvider):
             )
 
         symbol = query.symbol.strip()
+        if query.limit is not None and query.limit < 0:
+            raise ValueError(f"limit must be non-negative, got {query.limit}")
         period = _limit_to_period(query.limit, interval)
 
         raw_rows = self._fetcher.fetch_history(
@@ -264,8 +269,9 @@ class YahooPriceProvider(SignalProvider):
                 )
             )
 
-        if query.limit is not None and query.limit >= 0:
-            bars = bars[-query.limit:]
+        if query.limit is not None:
+            # bars[-0:] would slice to "everything" - guard the zero case.
+            bars = bars[-query.limit:] if query.limit else ()
 
         return PriceHistory(
             symbol=symbol,

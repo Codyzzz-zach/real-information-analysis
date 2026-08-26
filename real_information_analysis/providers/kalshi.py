@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
+from urllib.parse import quote
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float
 from .base import ProviderParseError, SignalProvider
@@ -209,12 +210,12 @@ class KalshiProvider(SignalProvider):
         return markets
 
     def get_market(self, ticker: str) -> KalshiMarket:
-        payload = self.http_client.get_json(f"{KALSHI_API_URL}/markets/{ticker}")
+        payload = self.http_client.get_json(f"{KALSHI_API_URL}/markets/{quote(ticker, safe='')}")
         raw = _unwrap_object(payload, key="market")
         return self._parse_market(raw)
 
     def get_event(self, event_ticker: str) -> KalshiEvent:
-        payload = self.http_client.get_json(f"{KALSHI_API_URL}/events/{event_ticker}")
+        payload = self.http_client.get_json(f"{KALSHI_API_URL}/events/{quote(event_ticker, safe='')}")
         raw_event = _unwrap_object(payload, key="event")
         raw_markets = _unwrap_list(payload, key="markets")
         markets: list[KalshiMarket] = []
@@ -241,7 +242,7 @@ class KalshiProvider(SignalProvider):
 
     def get_order_book(self, ticker: str, *, depth: int = 10) -> KalshiOrderBook:
         payload = self.http_client.get_json(
-            f"{KALSHI_API_URL}/markets/{ticker}/orderbook",
+            f"{KALSHI_API_URL}/markets/{quote(ticker, safe='')}/orderbook",
             params={"depth": depth},
         )
         if not isinstance(payload, Mapping):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderParseError, SignalProvider
@@ -164,6 +164,13 @@ class CoinGeckoProvider(SignalProvider):
     # -- coins/markets ------------------------------------------------------
 
     def list_markets(self, query: CoinGeckoMarketQuery | None = None) -> list[CoinGeckoMarket]:
+        """List top coins by market cap.
+
+        Rows with missing price/market-cap/volume fields are skipped rather
+        than raising: one anomalous coin (null market_cap happens during
+        data migrations) must not destroy the whole page - consistent with
+        the partial-failure tolerance used by the other list endpoints.
+        """
         query = query or CoinGeckoMarketQuery()
         payload = self.http_client.get_json(
             f"{COINGECKO_BASE}/coins/markets",
@@ -176,19 +183,22 @@ class CoinGeckoProvider(SignalProvider):
         )
         if not isinstance(payload, list):
             raise ProviderParseError("expected coins/markets payload to be a list")
-        return [self._parse_market(item) for item in payload]
+        markets: list[CoinGeckoMarket] = []
+        for item in payload:
+            if not isinstance(item, Mapping):
+                continue
+            parsed = self._parse_market(item)
+            if parsed is not None:
+                markets.append(parsed)
+        return markets
 
-    def _parse_market(self, raw: Mapping[str, Any]) -> CoinGeckoMarket:
+    def _parse_market(self, raw: Mapping[str, Any]) -> CoinGeckoMarket | None:
         current_price = _coerce_float(raw.get("current_price"))
         market_cap = _coerce_float(raw.get("market_cap"))
         total_volume = _coerce_float(raw.get("total_volume"))
 
-        if current_price is None:
-            raise ProviderParseError(f"missing current_price for coin: {raw.get('id')}")
-        if market_cap is None:
-            raise ProviderParseError(f"missing market_cap for coin: {raw.get('id')}")
-        if total_volume is None:
-            raise ProviderParseError(f"missing total_volume for coin: {raw.get('id')}")
+        if current_price is None or market_cap is None or total_volume is None:
+            return None
 
         return CoinGeckoMarket(
             coin_id=str(raw.get("id", "")),

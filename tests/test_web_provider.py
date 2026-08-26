@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import dataclass
 
+from real_information_analysis.providers.base import ProviderError
 from real_information_analysis.providers.web import (
     WebPageContent,
     WebPageQuery,
@@ -213,6 +214,45 @@ class TestWebSearchProviderDataModels(unittest.TestCase):
         self.assertEqual(meta.provider_id, "web")
         self.assertIn("search", meta.capabilities)
         self.assertIn("fetch_page", meta.capabilities)
+
+
+class FetchPageSchemeRestrictionTests(unittest.TestCase):
+    def test_file_scheme_rejected(self) -> None:
+        provider = WebSearchProvider(http_client=FakeSearchClient())
+        with self.assertRaises(ProviderError):
+            provider.fetch_page("file:///etc/passwd")
+
+    def test_ftp_scheme_rejected(self) -> None:
+        provider = WebSearchProvider(http_client=FakeSearchClient())
+        with self.assertRaises(ProviderError):
+            provider.fetch_page("ftp://example.com/file.txt")
+
+    def test_relative_url_rejected(self) -> None:
+        provider = WebSearchProvider(http_client=FakeSearchClient())
+        with self.assertRaises(ProviderError):
+            provider.fetch_page("not-a-url")
+
+    def test_https_still_allowed(self) -> None:
+        fake = FakeSearchClient(page_html="<html><body>ok</body></html>")
+        provider = WebSearchProvider(http_client=fake)
+        result = provider.fetch_page("https://example.com")
+        self.assertIn("ok", result.text)
+
+
+class IsCaptchaHeuristicTests(unittest.TestCase):
+    def test_short_no_results_page_is_not_a_captcha(self) -> None:
+        """A genuine empty result page is a valid response, not a bot block."""
+        html = "<html><body><div>No results found for your search</div></body></html>"
+        self.assertFalse(WebSearchProvider._is_captcha(html))
+
+    def test_short_unrecognised_page_is_a_captcha(self) -> None:
+        self.assertTrue(WebSearchProvider._is_captcha("<html><body>blocked?</body></html>"))
+
+    def test_known_captcha_marker_always_flags(self) -> None:
+        self.assertTrue(WebSearchProvider._is_captcha("x" * 3000 + "challenge-form"))
+
+    def test_page_with_results_is_not_a_captcha(self) -> None:
+        self.assertFalse(WebSearchProvider._is_captcha(SAMPLE_DDG_HTML))
 
 
 if __name__ == "__main__":

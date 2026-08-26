@@ -4,8 +4,9 @@ import csv
 from dataclasses import dataclass, field
 from io import StringIO
 from typing import Protocol
+from urllib.parse import quote
 
-from real_information_analysis.http import TextHttpClient, UrllibJsonClient
+from ..http import TextHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float
 from .base import ProviderParseError, SignalProvider
@@ -53,7 +54,7 @@ class BisProvider(SignalProvider):
 
     def get_policy_rates(self, query: BisRateQuery | None = None) -> list[BisPolicyRate]:
         query = query or BisRateQuery()
-        country_codes = "+".join(query.countries)
+        country_codes = "+".join(quote(c, safe="") for c in query.countries)
         url = f"{BIS_BASE_URL}/data/WS_CBPOL/M.{country_codes}"
         payload = self.http_client.get_text(
             url,
@@ -67,7 +68,7 @@ class BisProvider(SignalProvider):
 
     def get_credit_to_gdp(self, query: BisCreditGapQuery | None = None) -> list[BisCreditGap]:
         query = query or BisCreditGapQuery()
-        country_codes = "+".join(query.countries)
+        country_codes = "+".join(quote(c, safe="") for c in query.countries)
         url = f"{BIS_BASE_URL}/data/WS_CREDIT_GAP/Q.{country_codes}"
         payload = self.http_client.get_text(
             url,

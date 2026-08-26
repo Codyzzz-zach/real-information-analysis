@@ -111,6 +111,24 @@ class TestGatherFailFast(unittest.TestCase):
         self.assertIsInstance(exc.results, dict)
         self.assertIsInstance(exc.errors, dict)
 
+    def test_fail_fast_does_not_wait_for_stragglers(self):
+        """Regression: GatherError must surface before slow tasks finish.
+
+        The old implementation exited the executor context manager, which
+        blocks until every running task completes - "fail fast" wasn't.
+        """
+        def bad():
+            raise ValueError("boom")
+
+        def slow():
+            time.sleep(1.0)
+            return "late"
+
+        start = time.monotonic()
+        with self.assertRaises(GatherError):
+            gather({"bad": bad, "slow": slow}, fail_fast=True)
+        self.assertLess(time.monotonic() - start, 0.5)
+
 
 class TestGatherConcurrency(unittest.TestCase):
     """Verify tasks actually run in parallel."""

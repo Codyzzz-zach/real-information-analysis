@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from http.client import HTTPException as _HttpConnError
-from typing import Any, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 from urllib.error import HTTPError, URLError
 
 from ._coerce import _coerce_float, _coerce_int
@@ -70,6 +71,10 @@ def black_scholes_greeks(
         :class:`OptionGreeks` or ``None`` if inputs are invalid.
     """
     if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        return None
+    # An unrecognised option_type must be an error (None), never silently
+    # treated as a put - a sign flip here corrupts every downstream signal.
+    if option_type not in ("call", "put"):
         return None
 
     sqrt_T = math.sqrt(T)
@@ -275,15 +280,23 @@ class OptionsChain:
 
 
 class _ChainRows:
-    """Container for raw option chain data (list-of-dicts)."""
+    """Container for raw option chain data (list-of-dicts).
 
-    __slots__ = ("calls", "puts")
+    *underlying_price* carries the quote from the same v7 response, so the
+    provider does not need a separate ``fetch_underlying_price()`` call.
+    """
+
+    __slots__ = ("calls", "puts", "underlying_price")
 
     def __init__(
-        self, calls: list[dict[str, Any]], puts: list[dict[str, Any]]
+        self,
+        calls: list[dict[str, Any]],
+        puts: list[dict[str, Any]],
+        underlying_price: float | None = None,
     ) -> None:
         self.calls = calls
         self.puts = puts
+        self.underlying_price = underlying_price
 
 
 class OptionsFetcher(Protocol):
@@ -323,6 +336,9 @@ class _DirectYahooOptionsFetcher:
     _TIMEOUT = 25.0
     _RETRIES = 4
     _RETRY_DELAY = 1.0
+    # Expiration lists only change when new expirations get listed; a short
+    # TTL is enough to deduplicate the calls within one get_chain() flow.
+    _EXPIRATION_CACHE_TTL = 60.0
 
     def __init__(self) -> None:
         import http.cookiejar
@@ -334,6 +350,14 @@ class _DirectYahooOptionsFetcher:
         )
         self._opener.addheaders = [("User-Agent", self._USER_AGENT)]
         self._crumb: str | None = None
+        # Single-flight lock for the crumb handshake (see _ensure_crumb).
+        self._crumb_lock = threading.Lock()
+        # http.cookiejar.CookieJar is not thread-safe, so opener calls are
+        # serialised. gather() runs providers on threads; tests keep patching
+        # _opener.open, which stays the single network choke point.
+        self._http_lock = threading.Lock()
+        self._expirations_lock = threading.Lock()
+        self._expirations_cache: dict[str, tuple[float, dict[str, int]]] = {}
 
     # -- credential lifecycle -------------------------------------------
 
@@ -342,12 +366,22 @@ class _DirectYahooOptionsFetcher:
 
         Yahoo intermittently drops TLS connections (``SSL: UNEXPECTED_EOF``),
         so the consent + crumb handshake is retried up to ``_RETRIES`` times.
-        HTTP 404 from the consent endpoint is expected — it still sets the
-        cookies Yahoo expects — and is therefore not retried.
+        HTTP 404 from the consent endpoint is expected - it still sets the
+        cookies Yahoo expects - and is therefore not retried.
+
+        The handshake runs under ``_crumb_lock``: fetching a second crumb on
+        the same cookiejar invalidates the first, so concurrent first calls
+        must not race the initialisation.
         """
         if self._crumb is not None:
             return self._crumb
+        with self._crumb_lock:
+            if self._crumb is not None:
+                return self._crumb
+            self._crumb = self._crumb_handshake()
+            return self._crumb
 
+    def _crumb_handshake(self) -> str:
         last_exc: Exception | None = None
         for attempt in range(1, self._RETRIES + 1):
             # Step 1: seed the cookiejar.  fc.yahoo.com returns 404 but still
@@ -388,7 +422,6 @@ class _DirectYahooOptionsFetcher:
                 raise ProviderError(
                     "Yahoo returned an empty crumb; options chain unavailable"
                 )
-            self._crumb = crumb
             return crumb
 
         raise ProviderError(
@@ -409,7 +442,8 @@ class _DirectYahooOptionsFetcher:
         last_exc: Exception | None = None
         for attempt in range(1, self._RETRIES + 1):
             try:
-                body = self._opener.open(url, timeout=self._TIMEOUT).read()
+                with self._http_lock:
+                    body = self._opener.open(url, timeout=self._TIMEOUT).read()
                 return json.loads(body.decode("utf-8"))
             except HTTPError as exc:
                 if exc.code in (429, 401, 500, 502, 503) and attempt < self._RETRIES:
@@ -434,10 +468,7 @@ class _DirectYahooOptionsFetcher:
     # -- OptionsFetcher protocol ----------------------------------------
 
     def fetch_expirations(self, ticker: str) -> tuple[str, ...]:
-        data = self._get_options(ticker)
-        result = self._extract_result(data, ticker)
-        raw_exps = result.get("expirationDates") or []
-        return tuple(self._ts_to_date(ts) for ts in raw_exps)
+        return tuple(self._expiration_map(ticker))
 
     def fetch_chain(self, ticker: str, expiration: str) -> _ChainRows:
         date_ts = self._expiration_to_ts(ticker, expiration)
@@ -447,16 +478,36 @@ class _DirectYahooOptionsFetcher:
         chain = options[0] if options else {}
         calls = self._normalise_contracts(chain.get("calls") or [])
         puts = self._normalise_contracts(chain.get("puts") or [])
-        return _ChainRows(calls=calls, puts=puts)
+        return _ChainRows(
+            calls=calls, puts=puts, underlying_price=self._quote_price(result)
+        )
 
     def fetch_underlying_price(self, ticker: str) -> float | None:
         data = self._get_options(ticker)
         result = self._extract_result(data, ticker)
-        quote = result.get("quote") or {}
-        price = quote.get("regularMarketPrice")
-        if price is None:
-            price = quote.get("lastPrice")
-        return float(price) if price is not None else None
+        return self._quote_price(result)
+
+    def _expiration_map(self, ticker: str) -> dict[str, int]:
+        """Return ``{expiration date -> unix ts}`` for *ticker*, cached briefly.
+
+        The provider needs this map in several places (nearest expiration,
+        date-to-ts resolution, expiry listings); without the cache a single
+        get_chain() round-trip hit the v7 endpoint four times, which Yahoo
+        answers with 429s. The network fetch happens outside the lock - a
+        rare duplicate fetch on a race is harmless.
+        """
+        now = time.monotonic()
+        with self._expirations_lock:
+            cached = self._expirations_cache.get(ticker)
+            if cached is not None and now - cached[0] < self._EXPIRATION_CACHE_TTL:
+                return cached[1]
+        result = self._extract_result(self._get_options(ticker), ticker)
+        mapping = {
+            self._ts_to_date(ts): ts for ts in (result.get("expirationDates") or [])
+        }
+        with self._expirations_lock:
+            self._expirations_cache[ticker] = (now, mapping)
+        return mapping
 
     # -- helpers --------------------------------------------------------
 
@@ -480,17 +531,20 @@ class _DirectYahooOptionsFetcher:
         that exact timestamp rather than re-deriving it, so DST / time-zone
         quirks can't shift it.
         """
-        data = self._get_options(ticker)
-        result = self._extract_result(data, ticker)
-        date_to_ts = {
-            self._ts_to_date(ts): ts for ts in (result.get("expirationDates") or [])
-        }
-        ts = date_to_ts.get(expiration)
+        ts = self._expiration_map(ticker).get(expiration)
         if ts is None:
             raise ProviderError(
                 f"expiration {expiration!r} not available for {ticker!r}"
             )
         return ts
+
+    @staticmethod
+    def _quote_price(result: Mapping[str, Any]) -> float | None:
+        quote = result.get("quote") or {}
+        price = quote.get("regularMarketPrice")
+        if price is None:
+            price = quote.get("lastPrice")
+        return float(price) if price is not None else None
 
     @staticmethod
     def _ts_to_date(ts: int) -> str:
@@ -561,9 +615,12 @@ class YFinanceProvider(SignalProvider):
                 )
             expiration = exps[0]
 
-        # Fetch raw data
+        # Fetch raw data. The chain payload carries the underlying quote, so
+        # the separate fetch_underlying_price() call is only a fallback.
         raw = self._fetcher.fetch_chain(ticker, expiration)
-        underlying = self._fetcher.fetch_underlying_price(ticker)
+        underlying = getattr(raw, "underlying_price", None)
+        if underlying is None:
+            underlying = self._fetcher.fetch_underlying_price(ticker)
 
         # Time to expiration (years)
         try:

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderParseError, SignalProvider
@@ -31,6 +31,22 @@ def _json_list(value: object, *, field_name: str) -> list[object]:
         if isinstance(decoded, list):
             return decoded
     raise ProviderParseError(f"unexpected {field_name} type: {type(value).__name__}")
+
+
+def _first_coerced(*values: object) -> float | None:
+    """Return the first value that coerces to a number - 0.0 included.
+
+    Unlike ``a or b``, a legitimate zero does not fall through to the
+    fallback field: a zero-volume market must surface as 0.0, not as the
+    other field's value (or None).
+    """
+    for value in values:
+        if value is None:
+            continue
+        coerced = _coerce_float(value)
+        if coerced is not None:
+            return coerced
+    return None
 
 
 def _normalize_event_order(order: str | None) -> str | None:
@@ -311,9 +327,9 @@ class PolymarketProvider(SignalProvider):
             else None,
             start_date=raw_market.get("startDate") if isinstance(raw_market.get("startDate"), str) else None,
             end_date=raw_market.get("endDate") if isinstance(raw_market.get("endDate"), str) else None,
-            volume=_coerce_float(raw_market.get("volumeNum")) or _coerce_float(raw_market.get("volume")),
-            volume_24hr=_coerce_float(raw_market.get("volume24hr")) or _coerce_float(raw_market.get("volume24hrClob")),
-            liquidity=_coerce_float(raw_market.get("liquidityNum")) or _coerce_float(raw_market.get("liquidity")),
+            volume=_first_coerced(raw_market.get("volumeNum"), raw_market.get("volume")),
+            volume_24hr=_first_coerced(raw_market.get("volume24hr"), raw_market.get("volume24hrClob")),
+            liquidity=_first_coerced(raw_market.get("liquidityNum"), raw_market.get("liquidity")),
             best_bid=_coerce_float(raw_market.get("bestBid")),
             best_ask=_coerce_float(raw_market.get("bestAsk")),
             last_trade_price=_coerce_float(raw_market.get("lastTradePrice")),

@@ -140,6 +140,24 @@ class FredProviderGetSeriesTests(unittest.TestCase):
         self.assertEqual(series.latest.date, "2026-04-10")
         self.assertAlmostEqual(series.latest_value, 19.23)
 
+    def test_latest_returns_newest_even_when_ascending(self) -> None:
+        """Regression: latest must not assume desc order (observations[0])."""
+        ascending = {
+            "observations": [
+                {"date": "2026-04-07", "value": "22.10"},
+                {"date": "2026-04-08", "value": "21.05"},
+                {"date": "2026-04-10", "value": "19.23"},
+            ]
+        }
+        fake = _RoutingFakeClient(observations=ascending)
+        provider = FredProvider(api_key="TEST_KEY", http_client=fake)
+        series = provider.get_series(FredSeriesQuery(series_id="VIXCLS", sort_order="asc"))
+        # Ascending order preserved ...
+        self.assertEqual(series.observations[0].date, "2026-04-07")
+        # ... but latest is still the newest observation.
+        self.assertEqual(series.latest.date, "2026-04-10")
+        self.assertAlmostEqual(series.latest_value, 19.23)
+
     def test_empty_observations_returns_empty_tuple(self) -> None:
         fake = _RoutingFakeClient(observations=SAMPLE_EMPTY_OBSERVATIONS_JSON)
         provider = FredProvider(api_key="TEST_KEY", http_client=fake)

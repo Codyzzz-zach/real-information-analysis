@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import threading
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Mapping
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..concurrent import gather
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float
 from .base import ProviderError, ProviderParseError, SignalProvider
@@ -255,26 +258,35 @@ class EdgarProvider(SignalProvider):
             })
         self.http_client: JsonHttpClient = http_client
         self._ticker_map: dict[str, dict[str, Any]] | None = None
+        # Lazy ticker-map init runs under a lock: gather() may call this
+        # provider from several threads at once.
+        self._ticker_map_lock = threading.Lock()
 
     def _resolve_cik(self, ticker: str) -> tuple[str, str]:
         """Return (cik_padded, company_name) for a ticker."""
         if self._ticker_map is None:
-            data = self.http_client.get_json(EDGAR_TICKERS_URL)
-            if not isinstance(data, Mapping):
-                raise ProviderParseError("expected company_tickers.json to be an object")
-            self._ticker_map = {}
-            for entry in data.values():
-                if not isinstance(entry, Mapping):
-                    continue
-                t = str(entry.get("ticker", "")).upper()
-                if t:
-                    self._ticker_map[t] = dict(entry)
+            with self._ticker_map_lock:
+                if self._ticker_map is None:
+                    self._ticker_map = self._load_ticker_map()
         ticker_upper = ticker.upper()
         entry = self._ticker_map.get(ticker_upper)
         if not entry:
             raise ProviderError(f"ticker not found: {ticker}")
         cik = str(entry["cik_str"]).zfill(10)
         return cik, str(entry.get("title", ""))
+
+    def _load_ticker_map(self) -> dict[str, dict[str, Any]]:
+        data = self.http_client.get_json(EDGAR_TICKERS_URL)
+        if not isinstance(data, Mapping):
+            raise ProviderParseError("expected company_tickers.json to be an object")
+        ticker_map: dict[str, dict[str, Any]] = {}
+        for entry in data.values():
+            if not isinstance(entry, Mapping):
+                continue
+            t = str(entry.get("ticker", "")).upper()
+            if t:
+                ticker_map[t] = dict(entry)
+        return ticker_map
 
     def get_insider_transactions(self, query: EdgarInsiderQuery) -> EdgarInsiderSummary:
         """Get recent Form 4 filings (insider transactions) for a company."""
@@ -338,7 +350,10 @@ class EdgarProvider(SignalProvider):
         needed to judge insider sentiment.
 
         Filings that fail to download or parse are skipped (partial-failure
-        tolerant), so one bad filing does not abort the whole batch.
+        tolerant), so one bad filing does not abort the whole batch.  The
+        per-filing XML downloads run through :func:`gather` with a small
+        worker pool - sequential fetches made a 20-filing query take minutes
+        whenever a single archive URL hung until timeout.
         """
         summary = self.get_insider_transactions(query)
         cik_no_zeros = summary.cik.lstrip("0")
@@ -347,8 +362,7 @@ class EdgarProvider(SignalProvider):
         if get_text is None:  # pragma: no cover - UrllibJsonClient always has it
             raise ProviderError("HTTP client does not support get_text; cannot fetch Form 4 bodies")
 
-        transactions: list[EdgarInsiderTransaction] = []
-        for filing in summary.recent_form4s:
+        def fetch_one(filing: EdgarFiling) -> EdgarInsiderTransaction | None:
             acc_no_dash = filing.accession_number.replace("-", "")
             # primary_document may include an xsl render wrapper (e.g.
             # "xslF345X06/wk-form4_...xml"); the raw XML lives at the archive
@@ -360,15 +374,23 @@ class EdgarProvider(SignalProvider):
             try:
                 body = get_text(url)
             except Exception:
-                # Skip filings we cannot fetch — don't abort the batch.
-                continue
+                # Skip filings we cannot fetch - don't abort the batch.
+                return None
             try:
-                tx = parse_form4_xml(body, filing.accession_number, url)
+                return parse_form4_xml(body, filing.accession_number, url)
             except ProviderParseError:
-                continue
-            if tx is not None:
-                transactions.append(tx)
-        return transactions
+                return None
+
+        result = gather(
+            {f.accession_number: partial(fetch_one, f) for f in summary.recent_form4s},
+            max_workers=4,
+        )
+        # Preserve the filing order (newest first) from the summary.
+        return [
+            tx
+            for tx in (result.get_or(f.accession_number, None) for f in summary.recent_form4s)
+            if tx is not None
+        ]
 
     # -- capital expenditure / R&D trends --------------------------------
 

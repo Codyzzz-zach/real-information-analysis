@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Protocol
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from .base import ProviderError, SignalProvider
@@ -330,8 +330,12 @@ class WebSearchProvider(SignalProvider):
         for marker in WebSearchProvider._CAPTCHA_MARKERS:
             if marker in html:
                 return True
-        # Also flag suspiciously short pages with no result markers.
+        # Also flag suspiciously short pages with no result markers - but a
+        # genuine short "no results" page is a valid response, not a block.
         if len(html) < 2000 and "result__a" not in html:
+            lowered = html.lower()
+            if "no results" in lowered or "did not match" in lowered:
+                return False
             return True
         return False
 
@@ -386,9 +390,20 @@ class WebSearchProvider(SignalProvider):
     # -- fetch_page --------------------------------------------------------
 
     def fetch_page(self, query: WebPageQuery | str) -> WebPageContent:
-        """Fetch a URL and extract its text content."""
+        """Fetch a URL and extract its text content.
+
+        Only ``http``/``https`` URLs are accepted - ``file://`` and other
+        schemes would turn this into a local-file / SSRF read primitive if
+        the provider ever runs behind a service boundary.
+        """
         if isinstance(query, str):
             query = WebPageQuery(url=query)
+
+        scheme = urlparse(query.url).scheme.lower()
+        if scheme not in ("http", "https"):
+            raise ProviderError(
+                f"unsupported URL scheme {scheme or '(none)'!r}; only http/https are allowed"
+            )
 
         html = self.http_client.fetch(query.url)
 

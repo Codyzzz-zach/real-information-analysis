@@ -780,5 +780,22 @@ class GetCapitalTrendsTests(unittest.TestCase):
         self.assertAlmostEqual(trends[0].latest_value, 10000)
 
 
+class InsiderDetailOrderTests(unittest.TestCase):
+    def test_parallel_fetch_preserves_filing_order(self) -> None:
+        """Regression: parallel downloads must keep the newest-first order."""
+        accessions = [
+            ("0001197647-26-000005", "wk-form4_1.xml"),
+            ("0001197647-26-000006", "wk-form4_2.xml"),
+            ("0001197647-26-000007", "wk-form4_3.xml"),
+        ]
+        submissions = _make_submissions_with_form4s(accessions)
+        bodies = {acc: SAMPLE_FORM4_XML_SALE for acc, _ in accessions}
+        fake = _DetailFakeClient(submissions_payload=submissions, form4_bodies=bodies)
+        provider = EdgarProvider(http_client=fake)
+
+        txs = provider.get_insider_transactions_detail(EdgarInsiderQuery(ticker="AAPL", limit=5))
+        self.assertEqual([tx.accession_number for tx in txs], [a for a, _ in accessions])
+
+
 if __name__ == "__main__":
     unittest.main()

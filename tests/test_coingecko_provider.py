@@ -200,6 +200,24 @@ class CoinGeckoPriceTests(unittest.TestCase):
         url, _ = self.fake_client.calls[0]
         self.assertEqual(url, f"{COINGECKO_BASE}/simple/price")
 
+    def test_list_markets_skips_rows_with_missing_fields(self) -> None:
+        """Regression: one bad row used to raise and destroy the whole page."""
+        good = {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "current_price": 69520.0,
+            "market_cap": 1390360296376,
+            "total_volume": 50877311856,
+        }
+        no_cap = dict(good, id="broken-cap", market_cap=None)
+        no_price = dict(good, id="broken-price", current_price=None)
+        fake = FakeJsonClient(markets_payload=[good, no_cap, no_price])
+        provider = CoinGeckoProvider(http_client=fake)
+
+        markets = provider.list_markets()
+        self.assertEqual([m.coin_id for m in markets], ["bitcoin"])
+
 
 class CoinGeckoGlobalTests(unittest.TestCase):
     def setUp(self) -> None:

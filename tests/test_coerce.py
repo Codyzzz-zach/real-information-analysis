@@ -104,6 +104,16 @@ class TestCoerceInt(unittest.TestCase):
         # "3.14" is not a valid int string
         self.assertIsNone(_coerce_int("3.14"))
 
+    def test_string_integral_float_parses(self):
+        # APIs occasionally send "3.0" / "1e3" for integer fields.
+        self.assertEqual(_coerce_int("3.0"), 3)
+        self.assertEqual(_coerce_int("-7.0"), -7)
+        self.assertEqual(_coerce_int("1e3"), 1000)
+
+    def test_string_float_specials_return_none(self):
+        self.assertIsNone(_coerce_int("nan"))
+        self.assertIsNone(_coerce_int("inf"))
+
     def test_string_non_numeric_returns_none(self):
         self.assertIsNone(_coerce_int("abc"))
         self.assertIsNone(_coerce_int("N/A"))

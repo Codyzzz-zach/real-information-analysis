@@ -1,4 +1,4 @@
-from .base import ProviderMetadata, SignalProvider
+from .base import ProviderError, ProviderMetadata, ProviderParseError, SignalProvider
 from .bis import (
     BisCreditGap,
     BisCreditGapQuery,
@@ -178,6 +178,8 @@ __all__ = [
     "PriceHistory",
     "PriceHistoryQuery",
     "ProviderMetadata",
+    "ProviderError",
+    "ProviderParseError",
     "SignalProvider",
     "StooqProvider",
     "YahooPriceProvider",

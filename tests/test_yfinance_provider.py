@@ -234,6 +234,18 @@ class BlackScholesGreeksTests(unittest.TestCase):
         assert g is not None
         self.assertAlmostEqual(g.delta, -0.5, delta=0.06)
 
+    def test_invalid_option_type_returns_none(self) -> None:
+        """Regression: anything but call/put must return None, not a put.
+
+        A case variant or typo used to be silently priced as a put,
+        flipping the delta sign in every downstream signal.
+        """
+        for bad in ("CALL", "Call", "", "c", "straddle"):
+            self.assertIsNone(
+                black_scholes_greeks(S=100, K=100, T=1.0, r=0.0, sigma=0.20, option_type=bad),
+                msg=f"option_type={bad!r} should be rejected",
+            )
+
     def test_call_put_delta_parity(self) -> None:
         """Call delta - put delta should be approximately 1."""
         gc = black_scholes_greeks(S=100, K=100, T=0.5, r=0.05, sigma=0.25, option_type="call")
@@ -351,6 +363,31 @@ class YFinanceProviderTests(unittest.TestCase):
             OptionsChainQuery(ticker="AAPL", compute_greeks=False)
         )
         self.assertEqual(chain.expiration, EXPIRATION)
+
+    def test_get_chain_skips_separate_underlying_fetch(self) -> None:
+        """When the chain rows carry the quote, no extra API call is made."""
+
+        class FetcherWithQuote(FakeOptionsFetcher):
+            def __init__(self) -> None:
+                super().__init__()
+                self.underlying_fetches = 0
+
+            def fetch_chain(self, ticker: str, expiration: str) -> _ChainRows:
+                rows = super().fetch_chain(ticker, expiration)
+                rows.underlying_price = 175.0
+                return rows
+
+            def fetch_underlying_price(self, ticker: str) -> float | None:
+                self.underlying_fetches += 1
+                return super().fetch_underlying_price(ticker)
+
+        fake = FetcherWithQuote()
+        provider = YFinanceProvider(fetcher=fake)
+        chain = provider.get_chain(
+            OptionsChainQuery(ticker="AAPL", expiration=EXPIRATION, compute_greeks=False)
+        )
+        self.assertAlmostEqual(chain.underlying_price, 175.0)
+        self.assertEqual(fake.underlying_fetches, 0)
 
     def test_greeks_computed_when_enabled(self) -> None:
         chain = self.provider.get_chain(
@@ -750,6 +787,30 @@ class DirectYahooOptionsFetcherTests(unittest.TestCase):
         self.assertEqual(len(rows.puts), 1)
         self.assertAlmostEqual(rows.calls[0]["impliedVolatility"], 0.25)
         self.assertEqual(rows.calls[0]["contractSymbol"], "AAPL260727C00150000")
+
+    def test_fetch_chain_carries_underlying_price(self) -> None:
+        """The chain payload already contains the underlying quote."""
+        fetcher = _DirectYahooOptionsFetcher()
+        with patch.object(
+            fetcher._opener, "open", side_effect=_FakeHttp(_fake_v7_payload(price=333.02))
+        ):
+            rows = fetcher.fetch_chain("AAPL", "2026-07-27")
+        self.assertAlmostEqual(rows.underlying_price, 333.02)
+
+    def test_expiration_map_cached_across_calls(self) -> None:
+        """Regression: repeated expiration lookups must not re-hit the API.
+
+        Without the cache, one get_chain() flow fetched the expiration list
+        twice (nearest-expiration pick + date-to-ts resolution).
+        """
+        fetcher = _DirectYahooOptionsFetcher()
+        fake = _FakeHttp(_fake_v7_payload(1785110400))
+        with patch.object(fetcher._opener, "open", side_effect=fake):
+            fetcher.fetch_expirations("AAPL")
+            fetcher.fetch_chain("AAPL", "2026-07-27")  # resolves ts via cache
+        v7_calls = [u for u in fake.calls if "getcrumb" not in u and "fc.yahoo.com" not in u]
+        # One call for the expiration map, one for the chain itself - not three.
+        self.assertEqual(len(v7_calls), 2)
 
     def test_fetch_underlying_price(self) -> None:
         fetcher = _DirectYahooOptionsFetcher()

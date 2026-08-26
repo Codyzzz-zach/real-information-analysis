@@ -101,5 +101,28 @@ class KalshiProviderTests(unittest.TestCase):
         self.assertEqual(params["depth"], 10)
 
 
+class UrlEncodingTests(unittest.TestCase):
+    def test_path_tickers_are_url_encoded(self) -> None:
+        """Regression: tickers went into the path unquoted (injection risk)."""
+        recorded: list[str] = []
+
+        class RecordingClient:
+            def get_json(self, url, *, params=None):  # noqa: ANN001, ANN202
+                recorded.append(url)
+                if "/orderbook" in url:
+                    return {"orderbook": {"yes": [], "no": []}}
+                return {"market": {}, "markets": [], "event": {}}
+
+        provider = KalshiProvider(http_client=RecordingClient())
+        provider.get_market("BAD TICKER/X")
+        self.assertIn("BAD%20TICKER%2FX", recorded[0])
+
+        provider.get_event("EV ENT")
+        self.assertIn("EV%20ENT", recorded[1])
+
+        provider.get_order_book("BAD TICKER/X")
+        self.assertIn("BAD%20TICKER%2FX/orderbook", recorded[2])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -184,5 +184,15 @@ class BisProviderMetadataTests(unittest.TestCase):
         self.assertEqual(meta.capabilities, ("policy_rates", "credit_gaps"))
 
 
+class CountryCodeEncodingTests(unittest.TestCase):
+    def test_country_codes_are_url_encoded(self) -> None:
+        """Regression: codes went into the path unquoted."""
+        fake_client = FakeTextClient(text="REF_AREA,TIME_PERIOD,OBS_VALUE\nUS,2026-01,4.5\n")
+        provider = BisProvider(http_client=fake_client)
+        provider.get_policy_rates(BisRateQuery(countries=("US", "X Y")))
+        url, _ = fake_client.calls[0]
+        self.assertIn("M.US+X%20Y", url)
+
+
 if __name__ == "__main__":
     unittest.main()

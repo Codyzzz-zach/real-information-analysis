@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_int as _coerce_int_or_none
 from .base import ProviderParseError, SignalProvider

@@ -88,6 +88,8 @@ def gather(
         Wall-clock cap for the entire batch.  ``None`` means no limit.
     fail_fast:
         If ``True``, raise :class:`GatherError` as soon as any task fails.
+        Queued tasks are cancelled and still-running tasks are abandoned to
+        finish in the background - the caller is not blocked on them.
         If ``False`` (the default), wait for every task and return partial
         results.
 
@@ -103,7 +105,8 @@ def gather(
     results: dict[str, Any] = {}
     errors: dict[str, BaseException] = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=effective_workers) as pool:
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=effective_workers)
+    try:
         future_to_label: dict[concurrent.futures.Future[Any], str] = {
             pool.submit(fn): label for label, fn in tasks.items()
         }
@@ -132,12 +135,19 @@ def gather(
                 f"task {label!r} did not complete within {timeout_seconds}s"
             )
 
-    if fail_fast and errors:
-        first_label = next(iter(errors))
-        raise GatherError(
-            f"task {first_label!r} failed: {errors[first_label]}",
-            results=results,
-            errors=errors,
-        )
+        if fail_fast and errors:
+            first_label = next(iter(errors))
+            raise GatherError(
+                f"task {first_label!r} failed: {errors[first_label]}",
+                results=results,
+                errors=errors,
+            )
 
-    return GatherResult(results=results, errors=errors)
+        return GatherResult(results=results, errors=errors)
+    finally:
+        if fail_fast:
+            # Don't block the caller on stragglers: cancel queued work and
+            # let running tasks finish in the background.
+            pool.shutdown(wait=False, cancel_futures=True)
+        else:
+            pool.shutdown(wait=True)

@@ -65,6 +65,30 @@ class PolymarketProviderTests(unittest.TestCase):
         event = self.provider.get_event("missing-slug")
         self.assertIsNone(event)
 
+    def test_zero_volume_not_treated_as_missing(self) -> None:
+        """Regression: `or`-fallbacks used to turn a legitimate 0.0 into the
+        other field's value (or None)."""
+        raw = {
+            "id": "1",
+            "slug": "m",
+            "question": "q?",
+            "conditionId": "c",
+            "outcomes": '["Yes", "No"]',
+            "outcomePrices": '["0.5", "0.5"]',
+            "volumeNum": 0.0,
+            "volume": 12345.0,
+            "volume24hr": 0,
+            "volume24hrClob": None,
+            "liquidityNum": None,
+            "liquidity": 999.0,
+        }
+        provider = PolymarketProvider()
+        market = provider._parse_market(raw)  # noqa: SLF001 - unit-level parse test
+        self.assertEqual(market.volume, 0.0)
+        self.assertEqual(market.volume_24hr, 0.0)
+        # liquidityNum missing -> falls back to the liquidity field.
+        self.assertEqual(market.liquidity, 999.0)
+
     def test_get_order_book_sorts_levels_and_computes_spread(self) -> None:
         book = self.provider.get_order_book(
             "111128191581505463501777127559667396812474366956707382672202929745167742497287"

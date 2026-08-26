@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
-from real_information_analysis.http import JsonHttpClient, UrllibJsonClient
+from ..http import JsonHttpClient, UrllibJsonClient
 
 from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderParseError, SignalProvider
@@ -59,10 +59,14 @@ class FredSeries:
 
     @property
     def latest(self) -> FredObservation | None:
-        """Return the most recent observation."""
+        """Return the most recent observation.
+
+        Correct regardless of ``sort_order``: dates are ISO ``YYYY-MM-DD``
+        strings, so lexicographic max equals chronological max.
+        """
         if not self.observations:
             return None
-        return self.observations[0]  # sort_order="desc" → newest first
+        return max(self.observations, key=lambda obs: obs.date)
 
     @property
     def latest_value(self) -> float | None:

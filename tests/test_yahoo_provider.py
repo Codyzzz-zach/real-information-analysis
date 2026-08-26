@@ -201,6 +201,15 @@ class YahooPriceProviderTests(unittest.TestCase):
         self.assertEqual(len(h.bars), 2)
         self.assertEqual(h.bars[0].date, "2026-07-21")
 
+    def test_limit_zero_returns_no_bars(self) -> None:
+        """Regression: bars[-0:] slices to everything, not nothing."""
+        h = self.provider.get_history(PriceHistoryQuery(symbol="SPY", limit=0))
+        self.assertEqual(h.bars, ())
+
+    def test_negative_limit_raises_value_error(self) -> None:
+        with self.assertRaises(ValueError):
+            self.provider.get_history(PriceHistoryQuery(symbol="SPY", limit=-1))
+
     def test_interval_mapped_to_yahoo_code(self) -> None:
         self.provider.get_history(PriceHistoryQuery(symbol="SPY", interval="w"))
         self.assertEqual(self.fake.calls[0][2], "1wk")
@@ -215,6 +224,22 @@ class YahooPriceProviderTests(unittest.TestCase):
         )
         h = self.provider.get_history(PriceHistoryQuery(symbol="SPY"))
         self.assertEqual(len(h.bars), 3)
+
+
+class SymbolEncodingTests(unittest.TestCase):
+    def test_symbol_url_encoded_in_chart_path(self) -> None:
+        """Regression: symbols like ^GSPC went into the URL path unquoted."""
+        fetcher = _DirectYahooPriceFetcher()
+        captured: dict[str, str] = {}
+
+        def fake_get_json(url: str) -> dict[str, Any]:
+            captured["url"] = url
+            return SAMPLE_CHART_JSON
+
+        with patch.object(fetcher, "_get_json", side_effect=fake_get_json):
+            fetcher.fetch_history("^GSPC", period="5d", interval="1d")
+        self.assertIn("%5EGSPC", captured["url"])
+        self.assertNotIn("^", captured["url"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,12 @@
 from ._version import __version__
 
+from .http import (
+    HttpClientError,
+    JsonHttpClient,
+    TextHttpClient,
+    UrllibJsonClient,
+)
+
 from .providers import (
     BisCreditGap,
     BisCreditGapQuery,
@@ -66,6 +73,8 @@ from .providers import (
     PriceHistory,
     PriceHistoryQuery,
     ProviderMetadata,
+    ProviderError,
+    ProviderParseError,
     SignalProvider,
     StooqProvider,
     YahooPriceProvider,
@@ -158,6 +167,10 @@ __all__ = [
     "GatherError",
     "GatherResult",
     "gather",
+    "HttpClientError",
+    "JsonHttpClient",
+    "TextHttpClient",
+    "UrllibJsonClient",
     "KalshiEvent",
     "KalshiMarket",
     "KalshiMarketQuery",
@@ -178,6 +191,8 @@ __all__ = [
     "PriceHistory",
     "PriceHistoryQuery",
     "ProviderMetadata",
+    "ProviderError",
+    "ProviderParseError",
     "RecordingHttpClient",
     "ReplayHttpClient",
     "ScoreReport",

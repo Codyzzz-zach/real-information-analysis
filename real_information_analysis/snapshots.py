@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -117,7 +120,19 @@ class RecordingHttpClient:
             captured_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         )
         path = self.snapshot_dir / _snapshot_filename(kind, url, params)
-        path.write_text(envelope.to_json())
+        # Atomic replace: a torn half-written file would break the next
+        # replay, and concurrent threads may write the same key.
+        fd, tmp_path = tempfile.mkstemp(dir=self.snapshot_dir, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(envelope.to_json())
+            os.replace(tmp_path, path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
 
 class ReplayHttpClient:
@@ -130,7 +145,9 @@ class ReplayHttpClient:
         key = _request_key("json", url, params)
         if key not in self.snapshots:
             raise SnapshotMissError(f"missing json snapshot for {url} {dict(_normalize_params(params))}")
-        return self.snapshots[key]
+        # Deep copy: providers that mutate the payload in place must not
+        # corrupt the snapshot for subsequent replays.
+        return copy.deepcopy(self.snapshots[key])
 
     def get_text(self, url: str, *, params: Mapping[str, object] | None = None) -> str:
         key = _request_key("text", url, params)

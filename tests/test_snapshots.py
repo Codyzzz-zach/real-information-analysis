@@ -111,6 +111,21 @@ class SnapshotTests(unittest.TestCase):
             with self.assertRaises(SnapshotMissError):
                 replay.get_json("https://api.example.com/missing", params={"id": 1})
 
+    def test_replay_client_returns_defensive_copies(self) -> None:
+        """A caller mutating the replayed payload must not corrupt the snapshot."""
+        payload = {"nested": {"items": [1, 2]}}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            client = RecordingHttpClient(
+                snapshot_dir=tmpdir, json_client=FakeJsonClient(payload)
+            )
+            client.get_json("https://api.example.com/items")
+
+            replay = ReplayHttpClient(tmpdir)
+            first = replay.get_json("https://api.example.com/items")
+            first["nested"]["items"].append(99)  # caller mutates the "response"
+            second = replay.get_json("https://api.example.com/items")
+            self.assertEqual(second, payload)
+
 
 if __name__ == "__main__":
     unittest.main()
