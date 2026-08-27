@@ -17,7 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # The whole suite is offline (fake HTTP clients + recorded fixtures),
-      # so plain pytest is all CI needs - zero dependencies to install.
+      # The whole suite is offline (fake HTTP clients + recorded fixtures)
+      # and stdlib-only - run it via unittest so no dependency install is
+      # needed (pytest is not part of the project's zero-dependency surface).
       - name: Run tests
-        run: python -m pytest tests/ -q
+        run: python -m unittest discover -s tests -p "test_*.py" -v
