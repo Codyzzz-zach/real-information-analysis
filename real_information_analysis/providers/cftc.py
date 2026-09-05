@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol
+from dataclasses import dataclass, field, replace
+from typing import Any, Mapping, Protocol, Sequence
 
 from ..http import JsonHttpClient, UrllibJsonClient
 
@@ -9,6 +9,28 @@ from ._coerce import _coerce_int as _coerce_int_or_none
 from .base import ProviderParseError, SignalProvider
 
 CFTC_SODA_URL = "https://publicreporting.cftc.gov/resource/72hh-3qpy.json"
+
+# Weekly COT reports — one year of history ≈ 52 reports.
+_REPORTS_PER_YEAR = 52
+
+
+def positioning_percentile(current: int | float, history: Sequence[int | float]) -> float | None:
+    """Fraction of *history* strictly below *current*.
+
+    Crowding gauge for speculative positioning, NOT a directional signal: the
+    academic evidence says COT positioning has no consistent ex-ante
+    predictive power for returns (Sanders & Irwin 2000; Steiner et al. 2025),
+    but crowded books do raise the probability of large adverse moves
+    (Algieri et al. 2015). A percentile near 1.0 = crowded long (fragility to
+    the downside); near 0.0 = crowded short (fragility to the upside).
+
+    Ties count as *not* below the current value. Returns ``None`` when
+    *history* is empty.
+    """
+    if not history:
+        return None
+    below = sum(1 for value in history if value < current)
+    return below / len(history)
 
 
 class CftcHttpClient(JsonHttpClient, Protocol):
@@ -120,6 +142,31 @@ class CftcCotProvider(SignalProvider):
         if query.primary_only:
             reports = self._keep_primary(reports)
         return reports
+
+    def get_positioning_percentile(
+        self,
+        query: CftcCotQuery | None = None,
+        *,
+        lookback_years: int = 3,
+    ) -> float | None:
+        """Percentile of the latest managed-money net position within its history.
+
+        Fetches ``lookback_years`` of weekly reports for the query's commodity
+        and returns :func:`positioning_percentile` of the newest ``mm_net``
+        against the rest. This is a crowding/fragility gauge — see the
+        function docstring for the literature framing; do not read it as a
+        directional "smart money" signal.
+        """
+        if query is None:
+            query = CftcCotQuery()
+        # +1 so the latest report has history left over to compare against.
+        history_query = replace(query, limit=max(1, lookback_years) * _REPORTS_PER_YEAR + 1)
+        reports = self.list_reports(history_query)
+        if not reports:
+            return None
+        latest = reports[0]
+        history = [report.mm_net for report in reports[1:]]
+        return positioning_percentile(latest.mm_net, history)
 
     def _parse_reports(self, payload: Any) -> list[CftcCotReport]:
         if not isinstance(payload, list):

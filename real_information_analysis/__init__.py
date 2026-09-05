@@ -102,11 +102,14 @@ from .providers import (
     YieldPoint,
 )
 from .concurrent import GatherError, GatherResult, gather
+from .interpretation import ReliabilityVerdict, probability_reliability
 from .scoring import (
     CalibrationBucket,
+    LedgerComposition,
     Prediction,
     PredictionLogError,
     ScoreReport,
+    ledger_composition_check,
     load_predictions,
     parse_prediction,
     render_report,
@@ -177,6 +180,7 @@ __all__ = [
     "KalshiOrderBook",
     "KalshiOrderLevel",
     "KalshiProvider",
+    "LedgerComposition",
     "OrderBook",
     "OrderLevel",
     "OutcomeQuote",
@@ -194,6 +198,7 @@ __all__ = [
     "ProviderError",
     "ProviderParseError",
     "RecordingHttpClient",
+    "ReliabilityVerdict",
     "ReplayHttpClient",
     "ScoreReport",
     "SignalProvider",
@@ -221,7 +226,10 @@ __all__ = [
     "OptionsChainQuery",
     "OptionsExpirations",
     "black_scholes_greeks",
+    "ledger_composition_check",
     "load_predictions",
+    "parse_prediction",
+    "probability_reliability",
     "render_report",
     "resolve_series_id",
     "score_predictions",

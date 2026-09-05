@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -25,9 +26,11 @@ from .providers._coerce import _coerce_float
 
 __all__ = [
     "CalibrationBucket",
+    "LedgerComposition",
     "Prediction",
     "PredictionLogError",
     "ScoreReport",
+    "ledger_composition_check",
     "load_predictions",
     "parse_prediction",
     "render_report",
@@ -310,6 +313,71 @@ def score_predictions(predictions: Iterable[Prediction], *, bucket_count: int = 
         brier_skill_vs_base_rate=_brier_skill_score(our_brier_on_base_subset, base_rate_brier),
         brier_skill_vs_market=_brier_skill_score(our_brier_on_market_subset, market_brier),
         buckets=tuple(buckets),
+    )
+
+
+@dataclass(frozen=True)
+class LedgerComposition:
+    """Result of the fast/slow composition lint on a prediction ledger.
+
+    A calibration loop only closes if predictions actually resolve; the lint
+    requires a healthy share of entries to resolve soon (see
+    :func:`ledger_composition_check`).
+    """
+
+    total: int
+    fast: int  # resolve_by - created_at <= max_days
+    slow: int  # dated but beyond max_days
+    undated: int  # missing or unparseable dates (counted against, fail closed)
+    fast_share: float
+    ok: bool
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def ledger_composition_check(
+    predictions: Iterable[Prediction],
+    *,
+    max_days: int = 180,
+    min_fast_share: float = 0.5,
+) -> LedgerComposition:
+    """Lint the ledger's fast/slow horizon mix.
+
+    At least *min_fast_share* of entries should satisfy
+    ``resolve_by - created_at <= max_days`` — a ledger where every forecast
+    resolves years out gives no timely feedback on calibration. Entries with
+    missing or unparseable dates count against the share (fail closed): an
+    undatable forecast cannot be scored on time. An empty ledger fails too —
+    no registered forecasts means no calibration loop at all.
+    """
+    total = 0
+    fast = 0
+    undated = 0
+    for prediction in predictions:
+        total += 1
+        created = _parse_iso_date(prediction.created_at)
+        due = _parse_iso_date(prediction.resolve_by)
+        if created is None or due is None:
+            undated += 1
+            continue
+        if (due - created).days <= max_days:
+            fast += 1
+    slow = total - fast - undated
+    share = fast / total if total else 0.0
+    return LedgerComposition(
+        total=total,
+        fast=fast,
+        slow=slow,
+        undated=undated,
+        fast_share=share,
+        ok=total > 0 and share >= min_fast_share,
     )
 
 

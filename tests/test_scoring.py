@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 from real_information_analysis.scoring import (
     Prediction,
     PredictionLogError,
+    ledger_composition_check,
     load_predictions,
     parse_prediction,
     render_report,
@@ -227,6 +228,86 @@ class TestRenderReport(unittest.TestCase):
     def test_render_without_resolved(self):
         text = render_report(score_predictions([Prediction(question="A", probability=0.5)]))
         self.assertIn("no resolved predictions", text)
+
+
+class TestGoldenLedger(unittest.TestCase):
+    """Hand-computed acceptance fixture — PRODUCTIZATION_PLAN.md §R5."""
+
+    def test_brier_exact_value(self) -> None:
+        predictions = [
+            Prediction(question="A", probability=0.7, outcome=True),   # (0.3)^2 = 0.09
+            Prediction(question="B", probability=0.2, outcome=False),  # (0.2)^2 = 0.04
+            Prediction(question="C", probability=0.6, outcome=True),   # (0.4)^2 = 0.16
+        ]
+        report = score_predictions(predictions)
+        self.assertAlmostEqual(report.brier, 0.29 / 3)  # ≈ 0.0967
+        self.assertEqual(report.resolved, 3)
+
+
+class TestLedgerCompositionCheck(unittest.TestCase):
+    """Fast/slow lint — a calibration loop must actually close (§R5)."""
+
+    @staticmethod
+    def _prediction(created_at=None, resolve_by=None):
+        return Prediction(
+            question="Q",
+            probability=0.5,
+            created_at=created_at,
+            resolve_by=resolve_by,
+        )
+
+    def test_all_fast_passes(self):
+        predictions = [
+            self._prediction("2026-01-01", "2026-04-01"),
+            self._prediction("2026-02-01", "2026-07-31"),  # exactly 180 days
+        ]
+        composition = ledger_composition_check(predictions)
+        self.assertTrue(composition.ok)
+        self.assertEqual(composition.fast, 2)
+
+    def test_current_ledger_style_all_slow_fails(self):
+        # 5-year horizons — like the initial real ledger — must fail the lint.
+        predictions = [self._prediction("2026-08-27", "2031-12-31") for _ in range(3)]
+        composition = ledger_composition_check(predictions)
+        self.assertFalse(composition.ok)
+        self.assertEqual(composition.fast, 0)
+        self.assertEqual(composition.slow, 3)
+
+    def test_half_fast_is_exactly_at_threshold(self):
+        predictions = [
+            self._prediction("2026-01-01", "2026-04-01"),
+            self._prediction("2026-01-01", "2031-01-01"),
+        ]
+        self.assertTrue(ledger_composition_check(predictions).ok)
+        self.assertFalse(
+            ledger_composition_check(predictions, min_fast_share=0.51).ok
+        )
+
+    def test_undated_counts_against_fail_closed(self):
+        predictions = [
+            self._prediction("2026-01-01", "2026-04-01"),
+            self._prediction("2026-01-01", None),
+            self._prediction(None, "2026-04-01"),
+            self._prediction("not-a-date", "2026-04-01"),
+        ]
+        composition = ledger_composition_check(predictions)
+        self.assertEqual(composition.fast, 1)
+        self.assertEqual(composition.undated, 3)
+        self.assertFalse(composition.ok)
+
+    def test_unparseable_date_format_counts_as_undated(self):
+        composition = ledger_composition_check([self._prediction("01/02/2026", "03/04/2026")])
+        self.assertEqual(composition.undated, 1)
+
+    def test_custom_max_days(self):
+        predictions = [self._prediction("2026-01-01", "2026-04-01")]  # 90 days
+        self.assertTrue(ledger_composition_check(predictions, max_days=90).ok)
+        self.assertFalse(ledger_composition_check(predictions, max_days=30).ok)
+
+    def test_empty_ledger_fails(self):
+        composition = ledger_composition_check([])
+        self.assertFalse(composition.ok)
+        self.assertEqual(composition.total, 0)
 
 
 if __name__ == "__main__":

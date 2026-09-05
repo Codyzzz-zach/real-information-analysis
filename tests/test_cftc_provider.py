@@ -9,7 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from real_information_analysis.providers.cftc import CftcCotProvider, CftcCotQuery, CftcCotReport
+from real_information_analysis.providers.cftc import (
+    CftcCotProvider,
+    CftcCotQuery,
+    CftcCotReport,
+    positioning_percentile,
+)
 
 # ---------------------------------------------------------------------------
 # Sample fixture data mimicking the CFTC SODA API response
@@ -232,7 +237,7 @@ class CftcCotProviderTests(unittest.TestCase):
         reports = provider.list_reports(CftcCotQuery(commodity_name="NONEXISTENT"))
         self.assertEqual(reports, [])
 
-    def test_missing_fields_default_to_zero(self) -> None:
+    def test_sparse_history_missing_fields_default_to_zero(self) -> None:
         class SparseClient:
             def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
                 return [
@@ -254,6 +259,61 @@ class CftcCotProviderTests(unittest.TestCase):
         self.assertEqual(r.mm_short, 0)
         self.assertEqual(r.mm_net, 0)
         self.assertEqual(r.prod_net, 0)
+
+
+class PositioningPercentileTests(unittest.TestCase):
+    """Crowding gauge — acceptance contract from PRODUCTIZATION_PLAN.md §R2."""
+
+    def setUp(self) -> None:
+        self.fake_client = FakeJsonClient()
+        self.provider = CftcCotProvider(http_client=self.fake_client)
+
+    def test_percentile_known_value(self) -> None:
+        # history 1..39 (39 values), current 37 → 36 values strictly below.
+        self.assertAlmostEqual(positioning_percentile(37, list(range(1, 40))), 36 / 39)
+
+    def test_percentile_bottom(self) -> None:
+        self.assertEqual(positioning_percentile(1, list(range(1, 40))), 0.0)
+
+    def test_percentile_top(self) -> None:
+        self.assertEqual(positioning_percentile(40, list(range(1, 40))), 1.0)
+
+    def test_ties_count_as_not_below(self) -> None:
+        # history [1, 2, 2, 3], current 2 → only the 1 is strictly below.
+        self.assertAlmostEqual(positioning_percentile(2, [1, 2, 2, 3]), 0.25)
+
+    def test_empty_history_returns_none(self) -> None:
+        self.assertIsNone(positioning_percentile(100, []))
+
+    def test_provider_method_uses_lookback_limit(self) -> None:
+        # lookback_years=3 → weekly reports → 3*52+1 = 157.
+        self.provider.get_positioning_percentile(
+            CftcCotQuery(commodity_name="GOLD"), lookback_years=3
+        )
+        _, params = self.fake_client.calls[-1]
+        assert params is not None
+        self.assertEqual(params["$limit"], 157)
+
+    def test_provider_method_percentile_of_latest_vs_rest(self) -> None:
+        # GOLD fake records DESC: 2026-03-04 mm_net=135000, 2026-02-25 mm_net=127000.
+        percentile = self.provider.get_positioning_percentile(
+            CftcCotQuery(commodity_name="GOLD")
+        )
+        self.assertAlmostEqual(percentile, 1.0)  # 135000 > 127000 → crowded long
+
+    def test_provider_method_empty_history_returns_none(self) -> None:
+        class EmptyClient:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                return []
+
+        provider = CftcCotProvider(http_client=EmptyClient())
+        self.assertIsNone(provider.get_positioning_percentile(CftcCotQuery(commodity_name="X")))
+
+    def test_provider_method_respects_query_filter(self) -> None:
+        self.provider.get_positioning_percentile(CftcCotQuery(commodity_name="CRUDE"))
+        _, params = self.fake_client.calls[-1]
+        assert params is not None
+        self.assertIn("CRUDE", str(params["$where"]))
 
 
 if __name__ == "__main__":

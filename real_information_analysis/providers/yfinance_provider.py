@@ -41,7 +41,13 @@ def _norm_pdf(x: float) -> float:
 
 @dataclass(frozen=True)
 class OptionGreeks:
-    """Black-Scholes Greeks for a single option contract."""
+    """Black-Scholes Greeks for a single option contract.
+
+    ``delta`` is the *risk-neutral* sensitivity (N(d1) for calls, N(d1)-1 for
+    puts): |put delta| ≈ N(-d2) approximates the probability of finishing
+    in-the-money, but under the risk-neutral measure — not the physical one.
+    Treat it as a rough gauge, never an exact probability.
+    """
 
     delta: float
     gamma: float
@@ -57,7 +63,7 @@ def black_scholes_greeks(
     sigma: float,
     option_type: str,
 ) -> OptionGreeks | None:
-    """Compute Black-Scholes Greeks.
+    """Compute Black-Scholes Greeks (risk-neutral measure).
 
     Args:
         S: Underlying price.
@@ -69,6 +75,13 @@ def black_scholes_greeks(
 
     Returns:
         :class:`OptionGreeks` or ``None`` if inputs are invalid.
+
+    Note:
+        All Greeks are risk-neutral quantities. |put delta| = N(-d2) is often
+        read as "probability of finishing ITM", but that holds under the
+        risk-neutral measure only — it embeds the market's risk aversion and
+        ignores the physical drift. Good enough as a rough gauge; not an
+        actual probability forecast.
     """
     if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
         return None

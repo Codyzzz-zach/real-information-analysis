@@ -10,6 +10,7 @@ if str(PACKAGE_ROOT) not in sys.path:
 
 from real_information_analysis.scoring import (
     PredictionLogError,
+    ledger_composition_check,
     load_predictions,
     render_report,
     score_predictions,
@@ -32,6 +33,12 @@ def main() -> int:
         default=10,
         help="Number of calibration buckets (default: 10).",
     )
+    parser.add_argument(
+        "--check-composition",
+        action="store_true",
+        help="Also lint the fast/slow horizon mix (>=50%% of entries must "
+        "resolve within 180 days) and exit non-zero when it fails.",
+    )
     args = parser.parse_args()
 
     if args.buckets < 1:
@@ -45,6 +52,16 @@ def main() -> int:
         return 1
 
     print(render_report(score_predictions(predictions, bucket_count=args.buckets)))
+
+    if args.check_composition:
+        composition = ledger_composition_check(predictions)
+        status = "OK" if composition.ok else "FAIL — calibration loop too slow"
+        print(
+            f"\nComposition: {composition.fast}/{composition.total} fast (<=180d), "
+            f"{composition.slow} slow, {composition.undated} undated — {status}"
+        )
+        return 0 if composition.ok else 1
+
     return 0
 
 
