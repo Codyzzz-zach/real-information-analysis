@@ -42,10 +42,19 @@ _DDG_MIN_INTERVAL: float = 2.0  # seconds between DDG requests
 
 
 class SearchHttpClient(Protocol):
-    """Minimal HTTP surface needed by :class:`WebSearchProvider`."""
+    """Minimal HTTP surface needed by :class:`WebSearchProvider`.
+
+    ``fetch`` serves page retrieval; ``post_form`` (optional) serves the
+    DuckDuckGo search POST — when the injected client implements it, search
+    traffic goes through the client too, so fakes can intercept both paths.
+    """
 
     def fetch(self, url: str, *, headers: dict[str, str] | None = None) -> str:
         """GET *url* and return the response body as text."""
+        ...
+
+    def post_form(self, url: str, *, data: Mapping[str, str], headers: dict[str, str] | None = None) -> str:
+        """POST *data* as a urlencoded form and return the body as text."""
         ...
 
 
@@ -86,6 +95,23 @@ class UrllibSearchClient:
                     break
                 time.sleep(self.retry_delay_seconds)
         raise ProviderError(f"web fetch failed: {url}") from last_error
+
+    def post_form(self, url: str, *, data: Mapping[str, str], headers: dict[str, str] | None = None) -> str:
+        hdrs = {
+            "User-Agent": self.user_agent,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        if headers:
+            hdrs.update(headers)
+        req = Request(url, data=urlencode(data).encode("utf-8"), headers=hdrs, method="POST")
+        try:
+            with urlopen(req, timeout=self.timeout_seconds) as resp:
+                charset = resp.headers.get_content_charset() or "utf-8"
+                return resp.read().decode(charset, errors="replace")
+        except HTTPError:
+            raise
+        except (URLError, TimeoutError) as exc:
+            raise ProviderError(f"web fetch failed: {url}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +410,29 @@ class WebSearchProvider(SignalProvider):
             return True
         return False
 
+    _DDG_POST_HEADERS = {
+        "Accept": "text/html",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    def _post_search(self, query_text: str) -> str:
+        """One DDG HTML POST, through the injected client when it supports it."""
+        post = getattr(self.http_client, "post_form", None)
+        if post is not None:
+            return post(DDG_HTML_URL, data={"q": query_text}, headers=dict(self._DDG_POST_HEADERS))
+        req = Request(
+            DDG_HTML_URL,
+            data=urlencode({"q": query_text}).encode("utf-8"),
+            headers={
+                "User-Agent": f"real-information-analysis/{_package_version}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                **self._DDG_POST_HEADERS,
+            },
+            method="POST",
+        )
+        with urlopen(req, timeout=20.0) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+
     def _fetch_ddg(self, query_text: str) -> str:
         """POST to DDG HTML with rate limiting and CAPTCHA retry."""
         global _ddg_last_request  # noqa: PLW0603
@@ -398,22 +447,9 @@ class WebSearchProvider(SignalProvider):
                     time.sleep(wait)
                 _ddg_last_request = time.monotonic()
 
-            form_data = urlencode({"q": query_text}).encode("utf-8")
-            req = Request(
-                DDG_HTML_URL,
-                data=form_data,
-                headers={
-                    "User-Agent": f"real-information-analysis/{_package_version}",
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Accept": "text/html",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-                method="POST",
-            )
             try:
-                with urlopen(req, timeout=20.0) as resp:
-                    html = resp.read().decode("utf-8", errors="replace")
-            except (HTTPError, URLError, TimeoutError) as exc:
+                html = self._post_search(query_text)
+            except (HTTPError, URLError, TimeoutError, ProviderError) as exc:
                 last_error = exc
                 if attempt >= self._MAX_RETRIES:
                     break

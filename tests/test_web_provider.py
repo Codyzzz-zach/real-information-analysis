@@ -120,6 +120,30 @@ class TestDdgParsing(unittest.TestCase):
 
 
 class TestWebSearchProvider(unittest.TestCase):
+    def test_search_routes_through_injected_post_form(self) -> None:
+        """search() must go through the injected client (no direct network)."""
+        canned = (
+            '<a class="result__a" href="https://example.com/x">Result X</a>'
+            '<a class="result__snippet" href="https://example.com/x">snippet</a>'
+        )
+
+        class PostFormClient:
+            def __init__(self):
+                self.urls: list[str] = []
+
+            def fetch(self, url, *, headers=None):
+                raise AssertionError("search must not use fetch()")
+
+            def post_form(self, url, *, data, headers=None):
+                self.urls.append(url)
+                return canned
+
+        client = PostFormClient()
+        provider = WebSearchProvider(http_client=client)
+        result = provider.search("test query")
+        self.assertEqual(client.urls, ["https://html.duckduckgo.com/html/"])
+        self.assertEqual(result.snippets[0].title, "Result X")
+
     def test_fetch_page_extracts_text_and_title(self):
         page_html = """
         <html>

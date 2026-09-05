@@ -3,7 +3,9 @@
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.3.0] — 2026-09-06
+
+Evaluation harness + MCP server (PRODUCTIZATION_PLAN.md §R6).
 
 ### Added
 
@@ -17,6 +19,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   calibration estimation via the prediction ledger only — the power analysis
   (≈350 resolved predictions for α\*=0.02) rules out judging calibration on
   the 16-question set.
+- `mcp_server.py` — stdlib-only MCP server (newline-delimited JSON-RPC 2.0
+  over stdio: initialize/ping/tools/list/tools/call) exposing 13
+  vendor-neutral tools: prediction_markets_search, prediction_market_book,
+  price_history, options_chain, yield_curve, cot_positions (includes
+  positioning percentile), insider_trades, policy_rates, credit_gap,
+  fear_greed, rate_probabilities, web_search, web_fetch. `--replay DIR`
+  serves recorded snapshots. Run: `python3 -m
+  real_information_analysis.mcp_server`.
+- MCP acceptance suite A1–A5 in CI: handshake + tool surface, record→replay
+  golden determinism, error contract (no tracebacks, secrets re-redacted at
+  the boundary), untrusted delimiters + SSRF refusal, zero-dependency
+  subprocess stdio smoke (no network).
+
+### Changed
+
+- `WebSearchProvider.search()` now routes its DuckDuckGo POST through the
+  injected HTTP client's optional `post_form` — search traffic is
+  interceptable in tests (previously it bypassed the client and always hit
+  the network). `UrllibSearchClient` gained `post_form`.
 
 ## [1.2.0] — 2026-09-06
 

@@ -135,7 +135,9 @@ options_chain / yield_curve / cot_positions / insider_trades /
 policy_rates / credit_gap / fear_greed / fed_watch / web_search / web_fetch
 ```
 
-**技术选型:** 包核心保持零依赖;MCP server 作为 optional extra(`real-information-analysis[mcp]`)引入官方 python-sdk。产品化阶段"零依赖"让位于"最小依赖面",由 A5 锁死依赖清单。
+**技术选型(1.3.0 修订):** 弃用 SDK 方案,`mcp_server.py` 以**纯 stdlib 手写 stdio JSON-RPC**(initialize/ping/tools/list/tools/call,2026-07-28 spec)。理由:CI 是裸解释器,SDK 依赖无法进 CI 被验收;零依赖承诺延伸到 MCP 层后 A5 自动成立。
+
+**状态(1.3.0):** ✅ 已实现并通过 A1–A5 全部验收(395 项测试,全离线):A1 握手与 13 工具面、A2 录制→回放黄金对比、A3 错误契约(边界再脱敏 `_redact_url`、无 traceback)、A4 untrusted 分隔符 + SSRF 拒绝、A5 子进程 stdio 冒烟(零依赖、无网络)。运行:`python3 -m real_information_analysis.mcp_server [--replay SNAPSHOT_DIR]`。
 
 **验收套件(全部可进 CI):**
 
