@@ -3,6 +3,21 @@
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `evals/` — RIA-Bench: two-lane evaluation design grounded in
+  ForecastBench / Foresight Arena (arXiv:2605.00420) / LLM-forecasting-survey
+  methodology. Lane A: 16-question fixed regression set with declarative
+  mechanical checks (`run_eval.py`, CI-runnable) across expiry conditioning,
+  thin markets, parlay markup, COT crowding framing, options heuristics,
+  prompt-injection canaries (SLO: 0 leaks) and report integrity; LLM-judge
+  rubric (R1–R12) with blind grading vs a no-skill control arm. Lane B:
+  calibration estimation via the prediction ledger only — the power analysis
+  (≈350 resolved predictions for α\*=0.02) rules out judging calibration on
+  the 16-question set.
+
 ## [1.2.0] — 2026-09-06
 
 Productization batch — acceptance contracts defined in

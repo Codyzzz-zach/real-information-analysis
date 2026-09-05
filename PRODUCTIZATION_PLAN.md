@@ -42,7 +42,7 @@
 
 ## 二、北极星指标(产品愿景的可测形式)
 
-1. **Brier skill vs market ≥ 0**(累计 ≥ 30 条已结算预测)——"我们至少不输给直接抄市场"。这是存在门槛,由 `scoring.py` 的 `brier_skill_vs_market` 直接度量。
+1. **Brier skill vs market ≥ 0**(累计 ≥ 30 条已结算预测为启动门槛)——"我们至少不输给直接抄市场"。这是存在门槛,由 `scoring.py` 的 `brier_skill_vs_market` 直接度量。**统计检出线**:按 Foresight Arena(arXiv:2605.00420)功效分析,要在 80% 功效下检出 α\*=0.02 的真实边缘需要 ≈350 条已结算预测——30 条只是"开始累积",350 条才是"能下结论"。
 2. **100% 结论可溯源**——报告中每个数字都能从快照 replay 复现(基建已存在于 `snapshots.py`,缺 CLI 暴露)。
 3. **首答 < 5 分钟、零人工**——agent 原生的速度优势,传统分析师 desk 给不了。
 
@@ -56,7 +56,7 @@
 |----|-----------|----------|------|
 | **T1 单元验收** | 改动本身是否正确 | 314 个离线测试 + CI(unittest discover) | 每条建议补对应断言 |
 | **T2 回放验收** | 同输入是否永远同输出(可复现性) | `snapshots.py` Recording/ReplayHttpClient | 未暴露为 CLI,无 golden 数据集 |
-| **T3 行为验收** | 报告质量是否真的变好 | WorkBuddy e2e + `e2e_experiment/control_a.md` 对照组先例 | 缺固定评测题集 + rubric |
+| **T3 行为验收** | 报告质量是否真的变好 | WorkBuddy e2e + `e2e_experiment/control_a.md` 对照组先例 | ✅ 已建成 `evals/`(16 题两车道设计,见 [evals/README.md](evals/README.md)) |
 | **T4 校准验收** | 长期是否 beating baselines | `scoring.py`(Brier/skill score/校准分桶已完整) | 无 CLI 入口、账本全是慢条目 |
 
 ---
@@ -155,7 +155,7 @@ policy_rates / credit_gap / fear_greed / fed_watch / web_search / web_fetch
 |---|------|------|------|
 | 1 | 可复现 | 历史报告可离线重放(`--replay` CLI) | 基建有,缺 CLI |
 | 2 | 可校准 | 快慢账本 + scoring CLI 进 CI + skill≥market 及格线 | scoring 完整,缺接线 |
-| 3 | 可评测 | `evals/` 固定题集(≈15 题:临期/薄市场/注入金丝雀/正常题)+ rubric + 对照组 | 有先例(control_a.md),缺制度化 |
+| 3 | 可评测 | `evals/` 固定题集 + rubric + 对照组 + 注入金丝雀 SLO=0 | ✅ 已建成(16 题,Lane A 机械检查可进 CI;Lane B 走账本长线) |
 | 4 | 安全 | untrusted 标记 + SSRF 白名单 + 秘钥脱敏 | 脱敏已做,其余待做 |
 | 5 | 可观测 | 每份报告头部源健康行:"12/14 sources OK, 2 degraded" | `gather()` partial failure 已支持,缺渲染 |
 | 6 | 可分发 | 版本号同步、changelog、MCP optional extra | ⚠️ **版本已漂移**(见第六节) |
