@@ -124,5 +124,57 @@ class UrlEncodingTests(unittest.TestCase):
         self.assertIn("BAD%20TICKER%2FX/orderbook", recorded[2])
 
 
+class DollarsSchemaTests(unittest.TestCase):
+    """Kalshi migrated pricing from integer cents to dollar floats
+    (yes_bid → yes_bid_dollars, volume_24h → volume_24h_fp). The parser must
+    accept both generations — regression for the 2026-09-07 live finding
+    where every listed market came back with None prices."""
+
+    def test_parses_live_dollars_fixture(self) -> None:
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                return _fixture_json("kalshi_markets_dollars.json")
+
+        provider = KalshiProvider(http_client=Fake())
+        markets = provider.list_markets(KalshiMarketQuery(series_ticker="KXFED", limit=30))
+
+        priced = [m for m in markets if m.yes_bid is not None]
+        self.assertGreater(len(priced), 0, "dollars-schema markets must not parse to None")
+        first = priced[0]
+        self.assertAlmostEqual(first.yes_bid, 0.15)  # dollars, not 0.0015
+        self.assertAlmostEqual(first.volume_24h, 30.0)
+        self.assertIsNotNone(first.midpoint)
+
+    def test_dollars_field_wins_over_legacy_cents(self) -> None:
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                return {"markets": [{
+                    "ticker": "TEST-T1", "event_ticker": "TEST", "status": "active",
+                    "market_type": "binary", "title": "t",
+                    "yes_bid_dollars": 0.42, "yes_bid": 7,  # both present: dollars wins
+                    "volume_24h_fp": 12.5,
+                }]}
+
+        provider = KalshiProvider(http_client=Fake())
+        market = provider.list_markets(KalshiMarketQuery(limit=1))[0]
+        self.assertAlmostEqual(market.yes_bid, 0.42)
+        self.assertAlmostEqual(market.volume_24h, 12.5)
+
+    def test_legacy_cents_still_parses(self) -> None:
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                return {"markets": [{
+                    "ticker": "TEST-T1", "event_ticker": "TEST", "status": "active",
+                    "market_type": "binary", "title": "t",
+                    "yes_bid": 15, "yes_ask": 36,  # legacy integer cents
+                }]}
+
+        provider = KalshiProvider(http_client=Fake())
+        market = provider.list_markets(KalshiMarketQuery(limit=1))[0]
+        self.assertAlmostEqual(market.yes_bid, 0.15)
+        self.assertAlmostEqual(market.yes_ask, 0.36)
+        self.assertAlmostEqual(market.midpoint, 0.255)
+
+
 if __name__ == "__main__":
     unittest.main()

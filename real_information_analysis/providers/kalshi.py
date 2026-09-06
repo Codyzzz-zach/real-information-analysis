@@ -41,6 +41,29 @@ def _cent_probability(value: object) -> float | None:
     return raw / 100.0
 
 
+def _dollar_probability(raw: Mapping[str, Any], dollars_key: str, cents_key: str) -> float | None:
+    """Read a probability price across Kalshi's two schemas.
+
+    Kalshi migrated market pricing from integer cents (``yes_bid`` = 15 →
+    0.15) to dollar floats (``yes_bid_dollars`` = 0.15). Prefer the dollars
+    field; fall back to the legacy cents field so both response generations
+    parse (the orderbook parser already follows this pattern).
+    """
+    dollars = _coerce_float(raw.get(dollars_key))
+    if dollars is not None:
+        return dollars
+    return _cent_probability(raw.get(cents_key))
+
+
+def _first_float(raw: Mapping[str, Any], *keys: str) -> float | None:
+    """First key carrying a numeric value — tolerance for field renames."""
+    for key in keys:
+        value = _coerce_float(raw.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 @dataclass(frozen=True)
 class KalshiMarketQuery:
     limit: int = 20
@@ -276,15 +299,15 @@ class KalshiProvider(SignalProvider):
             subtitle=raw.get("subtitle") if isinstance(raw.get("subtitle"), str) else None,
             yes_sub_title=raw.get("yes_sub_title") if isinstance(raw.get("yes_sub_title"), str) else None,
             no_sub_title=raw.get("no_sub_title") if isinstance(raw.get("no_sub_title"), str) else None,
-            yes_bid=_cent_probability(raw.get("yes_bid")),
-            yes_ask=_cent_probability(raw.get("yes_ask")),
-            no_bid=_cent_probability(raw.get("no_bid")),
-            no_ask=_cent_probability(raw.get("no_ask")),
-            last_price=_cent_probability(raw.get("last_price")),
-            volume=_coerce_float(raw.get("volume")),
-            volume_24h=_coerce_float(raw.get("volume_24h")),
-            open_interest=_coerce_float(raw.get("open_interest")),
-            liquidity=_coerce_float(raw.get("liquidity")),
+            yes_bid=_dollar_probability(raw, "yes_bid_dollars", "yes_bid"),
+            yes_ask=_dollar_probability(raw, "yes_ask_dollars", "yes_ask"),
+            no_bid=_dollar_probability(raw, "no_bid_dollars", "no_bid"),
+            no_ask=_dollar_probability(raw, "no_ask_dollars", "no_ask"),
+            last_price=_dollar_probability(raw, "last_price_dollars", "last_price"),
+            volume=_first_float(raw, "volume_fp", "volume"),
+            volume_24h=_first_float(raw, "volume_24h_fp", "volume_24h"),
+            open_interest=_first_float(raw, "open_interest_fp", "open_interest"),
+            liquidity=_first_float(raw, "liquidity_dollars", "liquidity"),
             strike_type=raw.get("strike_type") if isinstance(raw.get("strike_type"), str) else None,
             floor_strike=_coerce_float(raw.get("floor_strike")),
             open_time=raw.get("open_time") if isinstance(raw.get("open_time"), str) else None,

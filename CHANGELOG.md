@@ -3,6 +3,34 @@
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+# Changelog
+
+All notable changes to real-information-analysis are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [1.3.3] — 2026-09-07
+
+Generalization fix from the second live macro-question test run (Fed
+decision + US recession questions).
+
+### Fixed
+
+- **Kalshi market pricing silently returned None for every listed market.**
+  Kalshi migrated pricing from integer cents (`yes_bid` = 15) to dollar
+  floats (`yes_bid_dollars` = 0.15) and volumes to `_fp` fractional fields;
+  the market parser — unlike the orderbook parser, which already handled
+  both generations — still read only the legacy fields, so `list_markets`
+  and `get_event` returned unpriced markets and `most_active_market()`
+  lost its ranking signal. `_parse_market` now accepts both schemas
+  (dollars preferred, cents fallback), matching the established orderbook
+  pattern. Live-verified: 30/30 listed markets return prices (was 0/60).
+  Fixture captured from the live response alongside the legacy one.
+- SKILL.md methodology: when an event is already known (e.g. the September
+  FOMC), query it with `get_event(event_ticker)` — `list_markets` is
+  volume-ordered and truncated by `limit`, which is how the September
+  meeting was missed in the first place (no code change needed; the
+  capability already existed).
+
 ## [1.3.2] — 2026-09-06
 
 ### Added

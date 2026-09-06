@@ -1,6 +1,6 @@
 ---
 name: real-information-analysis
-version: 1.3.2
+version: 1.3.3
 description: "Answer prediction questions using market trading data, not opinions. Use when the user asks probability questions about geopolitics, economics, markets, industries, or any topic where real money is being traded on the outcome. Examples: 'What's the probability of WW3?', 'Will there be a recession?', 'Is AI in a bubble?', 'When will the Russia-Ukraine war end?', 'Is it a good time to buy gold?', 'Will SPY drop 5% this month?', 'Is NVDA options premium overpriced?'. The skill reads prices from prediction markets, commodities, equities, options chains, derivatives, yield curves, and currencies, then cross-validates multiple signals to produce a structured probability report."
 metadata: { "openclaw": { "emoji": "📈", "requires": { "bins": ["uv"] } } }
 ---
@@ -432,7 +432,7 @@ Rules: `resolution_criteria` must be objectively checkable at resolution time (a
 - Absolute value of put delta ≈ probability of that strike being ITM at expiration — a **risk-neutral** (Black-Scholes N(d2)-style) estimate, not a physical probability; rough gauge only
 - Put/Call ratio > 1.5 is typically bearish, but as a contrarian indicator, extreme values (> 3) may signal a bottom
 - Max pain is the strike price maximizing market maker profit — actual expiration price often converges toward max pain. **Low confidence heuristic**: no robust academic support; never let it move a probability estimate on its own
-- Kalshi does NOT support keyword search — use `series_ticker` or `event_ticker` to filter markets. Find tickers by browsing [kalshi.com](https://kalshi.com) or listing markets without filters first. Common series: `KXFED` (Fed rates), `KXINX` (S&P 500 range), `KXGDP` (GDP)
+- Kalshi does NOT support keyword search — use `series_ticker` or `event_ticker` to filter markets. Find tickers by browsing [kalshi.com](https://kalshi.com) or listing markets without filters first. Common series: `KXFED` (Fed rates), `KXINX` (S&P 500 range), `KXGDP` (GDP). **When you already know the event (e.g. "the September FOMC"), query it directly with `get_event("KXFED-26SEP")` — do NOT scan `list_markets(series_ticker=...)`: the listing is volume-ordered and truncated by `limit`, so the nearest-dated event can fall outside the page entirely (a September meeting was missed this way)**
 - Deribit futures method is `get_futures_term_structure()`, not `get_futures_curve()`. Option chain method is `get_option_chain()`
 - FearGreedProvider has no API key requirement. Returns a single composite score (0-100) synthesizing 7 market price signals: stock momentum, breadth, VIX, put/call ratio, junk bond demand, volatility, safe haven demand. Score < 25 = Extreme Fear, > 75 = Extreme Greed
 - For FOMC rate change probabilities, use Kalshi `KXFED` series directly — it is a one-step market vote on the rate outcome (binary-contract pricing), more direct than futures-derived estimates. Get order books via `kalshi.get_order_book("KXFED-...")` for midpoint-implied probability; the underlying rate trend comes from Treasury yield curve + FRED `FEDFUNDS`.
