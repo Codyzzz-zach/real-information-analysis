@@ -87,13 +87,28 @@ class EdgarInsiderTransaction:
 # Capital expenditure / R&D trends (long-term capital allocation signal)
 # ---------------------------------------------------------------------------
 
-# Maps a friendly concept name to the us-gaap XBRL tag. Verified against live
-# SEC data for US (10-K/USD), Chinese ADR (20-F/CNY+USD) and European ADR
-# (20-F/EUR) filers.
-CAPITAL_CONCEPTS: Mapping[str, str] = {
-    "R&D": "ResearchAndDevelopmentExpense",
-    "CapEx": "PaymentsToAcquireProductiveAssets",
-    "PP&E": "PropertyPlantAndEquipmentNet",
+# Maps a friendly concept name to XBRL tags per reporting regime.
+# US domestic filers (10-K) report under the ``us-gaap`` taxonomy; foreign
+# private issuers (20-F, IFRS) report under ``ifrs-full`` — TSM's
+# companyfacts (CIK 1046179) contains zero us-gaap tags, so a us-gaap-only
+# lookup silently returns nothing for them (verified live 2026-09-06).
+# ifrs-full tags verified against TSM's live companyfacts:
+#   ResearchAndDevelopmentExpense,
+#   PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities,
+#   PropertyPlantAndEquipment.
+CAPITAL_CONCEPTS: Mapping[str, Mapping[str, str]] = {
+    "R&D": {
+        "us-gaap": "ResearchAndDevelopmentExpense",
+        "ifrs-full": "ResearchAndDevelopmentExpense",
+    },
+    "CapEx": {
+        "us-gaap": "PaymentsToAcquireProductiveAssets",
+        "ifrs-full": "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+    },
+    "PP&E": {
+        "us-gaap": "PropertyPlantAndEquipmentNet",
+        "ifrs-full": "PropertyPlantAndEquipment",
+    },
 }
 
 
@@ -121,6 +136,8 @@ class CompanyCapitalTrend:
     history: tuple[CapitalDataPoint, ...]   # ascending by fiscal_year
     latest_value: float | None
     latest_fiscal_year: int | None
+    yoy_growth_pct: float | None = None
+    xbrl_namespace: str = ""      # taxonomy the data came from: us-gaap / ifrs-full
     yoy_growth_pct: float | None  # latest vs prior year, None if <2 data points
 
     def __len__(self) -> int:
@@ -429,7 +446,7 @@ class EdgarProvider(SignalProvider):
             raise ValueError(
                 f"unknown concept {concept!r}; choose from {list(CAPITAL_CONCEPTS)}"
             )
-        tag = CAPITAL_CONCEPTS[concept]
+        tag_variants = CAPITAL_CONCEPTS[concept]
         get_json = self.http_client.get_json
 
         trends: list[CompanyCapitalTrend] = []
@@ -438,30 +455,31 @@ class EdgarProvider(SignalProvider):
                 cik, company_name = self._resolve_cik(ticker)
             except ProviderError:
                 continue  # unknown ticker — skip, don't abort the batch
-            try:
-                payload = get_json(
-                    f"{EDGAR_XBRL_CONCEPT_URL}/CIK{cik}/us-gaap/{tag}.json"
+            trend = None
+            for namespace, tag in tag_variants.items():
+                try:
+                    payload = get_json(
+                        f"{EDGAR_XBRL_CONCEPT_URL}/CIK{cik}/{namespace}/{tag}.json"
+                    )
+                except Exception:
+                    continue  # tag not reported under this namespace — try next
+                if not isinstance(payload, Mapping):
+                    continue
+
+                unit_key, history = self._extract_capital_history(
+                    payload, years=years
                 )
-            except Exception:
-                continue  # concept not reported by this filer — skip
-            if not isinstance(payload, Mapping):
-                continue
+                if unit_key is None or not history:
+                    continue
 
-            unit_key, history = self._extract_capital_history(
-                payload, years=years
-            )
-            if unit_key is None or not history:
-                continue
-
-            latest = history[-1]
-            prior = history[-2] if len(history) >= 2 else None
-            yoy = (
-                (latest.value - prior.value) / abs(prior.value) * 100.0
-                if prior and prior.value not in (0, None)
-                else None
-            )
-            trends.append(
-                CompanyCapitalTrend(
+                latest = history[-1]
+                prior = history[-2] if len(history) >= 2 else None
+                yoy = (
+                    (latest.value - prior.value) / abs(prior.value) * 100.0
+                    if prior and prior.value not in (0, None)
+                    else None
+                )
+                trend = CompanyCapitalTrend(
                     ticker=ticker.upper(),
                     company_name=company_name,
                     cik=cik,
@@ -471,8 +489,11 @@ class EdgarProvider(SignalProvider):
                     latest_value=latest.value,
                     latest_fiscal_year=latest.fiscal_year,
                     yoy_growth_pct=yoy,
+                    xbrl_namespace=namespace,
                 )
-            )
+                break
+            if trend is not None:
+                trends.append(trend)
         return trends
 
     def _extract_capital_history(

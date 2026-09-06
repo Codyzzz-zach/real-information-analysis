@@ -797,5 +797,68 @@ class InsiderDetailOrderTests(unittest.TestCase):
         self.assertEqual([tx.accession_number for tx in txs], [a for a, _ in accessions])
 
 
+class NamespaceFallbackTests(unittest.TestCase):
+    """IFRS filers (20-F, e.g. TSM CIK 1046179) report zero us-gaap tags —
+    the capital-trends lookup must fall back to ifrs-full instead of silently
+    returning nothing (regression for the 2026-09-06 live-test finding)."""
+
+    def test_falls_back_to_ifrs_full(self) -> None:
+        us_gaap_urls: list[str] = []
+
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                if url == EDGAR_TICKERS_URL:
+                    return {"0": {"cik_str": 1046179, "ticker": "TSM", "title": "TAIWAN SEMICONDUCTOR"}}
+                if "/us-gaap/" in url:
+                    us_gaap_urls.append(url)
+                    raise RuntimeError("404 Not Found for us-gaap tag")  # IFRS filer
+                if "/ifrs-full/ResearchAndDevelopmentExpense.json" in url:
+                    return {
+                        "entityName": "TAIWAN SEMICONDUCTOR",
+                        "cik": "1046179",
+                        "taxonomy": "ifrs-full",
+                        "tag": "ResearchAndDevelopmentExpense",
+                        "units": {"TWD": [
+                            {"form": "20-F", "fy": 2023, "end": "2023-12-31", "val": 180_000_000_000},
+                            {"form": "20-F", "fy": 2024, "end": "2024-12-31", "val": 204_000_000_000},
+                        ]},
+                    }
+                raise AssertionError(f"unexpected url: {url}")
+
+        provider = EdgarProvider(http_client=Fake(), user_email="test@example.com")
+        trends = provider.get_capital_trends(tickers=["TSM"], concept="R&D", years=2)
+
+        self.assertEqual(len(us_gaap_urls), 1)  # tried first, then gave up
+        self.assertEqual(len(trends), 1)
+        trend = trends[0]
+        self.assertEqual(trend.xbrl_namespace, "ifrs-full")
+        self.assertEqual(trend.currency, "TWD")
+        self.assertEqual(trend.latest_fiscal_year, 2024)
+        self.assertAlmostEqual(trend.yoy_growth_pct, (204 - 180) / 180 * 100.0)
+
+    def test_us_gaap_still_preferred_when_available(self) -> None:
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                if url == EDGAR_TICKERS_URL:
+                    return {"0": {"cik_str": 1478096, "ticker": "ACMR", "title": "ACM Research"}}
+                if "/us-gaap/ResearchAndDevelopmentExpense.json" in url:
+                    return {
+                        "entityName": "ACM Research",
+                        "cik": "1478096",
+                        "taxonomy": "us-gaap",
+                        "tag": "ResearchAndDevelopmentExpense",
+                        "units": {"USD": [
+                            {"form": "10-K", "fy": 2024, "end": "2024-12-31", "val": 100_000_000},
+                        ]},
+                    }
+                raise AssertionError(f"unexpected url: {url}")
+
+        provider = EdgarProvider(http_client=Fake(), user_email="test@example.com")
+        trends = provider.get_capital_trends(tickers=["ACMR"], concept="R&D", years=1)
+
+        self.assertEqual(len(trends), 1)
+        self.assertEqual(trends[0].xbrl_namespace, "us-gaap")
+
+
 if __name__ == "__main__":
     unittest.main()

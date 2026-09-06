@@ -32,14 +32,20 @@ Q,CN,2025-Q3,15.3
 Q,CN,2025-Q2,14.9
 """
 
-# Real BIS WS_CREDIT_GAP response uses BORROWERS_CTY (not REF_AREA) plus extra
-# dimension columns. Verified against the live API on 2026-07-26.
+# Live BIS WS_CREDIT_GAP response (verified 2026-09-06): BORROWERS_CTY plus a
+# CG_DTYPE dimension carrying THREE series per quarter — A/B are credit-to-GDP
+# ratio variants (~140-205% of GDP), C is the signed gap. The provider must
+# return only C rows by default; the ratio rows were previously mis-labelled
+# as gap_pct. (The 2026-07-26 recording of this fixture labelled the gap "A" —
+# BIS has remapped the codes since, hence the evidence comment in bis.py.)
 SAMPLE_CREDIT_GAP_LIVE_CSV = """\
 FREQ,BORROWERS_CTY,TC_BORROWERS,TC_LENDERS,CG_DTYPE,TIME_PERIOD,OBS_VALUE
-Q,US,P,A,A,2025-Q3,-11.99
-Q,US,P,A,A,2025-Q2,-12.36
-Q,CN,P,A,A,2025-Q3,5.40
-Q,CN,P,A,A,2025-Q2,4.82
+Q,US,P,A,A,2025-Q2,141.0
+Q,US,P,A,B,2025-Q2,153.4
+Q,US,P,A,C,2025-Q2,-12.4
+Q,CN,P,A,A,2024-Q1,198.2
+Q,CN,P,A,B,2024-Q1,203.2
+Q,CN,P,A,C,2024-Q1,-4.9
 """
 
 SAMPLE_EMPTY_CSV = """\
@@ -140,18 +146,39 @@ class BisProviderCreditGapTests(unittest.TestCase):
         self.assertAlmostEqual(gaps[2].gap_pct, 15.3)
 
     def test_parse_credit_gaps_live_format(self) -> None:
-        """Live BIS responses use BORROWERS_CTY with extra dimension columns."""
+        """Live BIS responses carry 3 CG_DTYPE series; only the gap (C) is returned."""
         provider = BisProvider(http_client=FakeTextClient(SAMPLE_CREDIT_GAP_LIVE_CSV))
         gaps = provider.get_credit_to_gdp(
             BisCreditGapQuery(countries=("US", "CN"), start_year=2024)
         )
 
-        self.assertEqual(len(gaps), 4)
+        # Ratio rows (A/B) must not leak through as gap_pct.
+        self.assertEqual(len(gaps), 2)
         self.assertEqual(gaps[0].country, "US")
-        self.assertEqual(gaps[0].period, "2025-Q3")
-        self.assertAlmostEqual(gaps[0].gap_pct, -11.99)
-        self.assertEqual(gaps[2].country, "CN")
-        self.assertAlmostEqual(gaps[2].gap_pct, 5.40)
+        self.assertEqual(gaps[0].period, "2025-Q2")
+        self.assertEqual(gaps[0].data_type, "C")
+        self.assertAlmostEqual(gaps[0].gap_pct, -12.4)
+        self.assertEqual(gaps[1].country, "CN")
+        self.assertEqual(gaps[1].data_type, "C")
+        self.assertAlmostEqual(gaps[1].gap_pct, -4.9)
+
+    def test_include_all_series_returns_every_cg_dtype(self) -> None:
+        provider = BisProvider(http_client=FakeTextClient(SAMPLE_CREDIT_GAP_LIVE_CSV))
+        gaps = provider.get_credit_to_gdp(
+            BisCreditGapQuery(countries=("US", "CN"), start_year=2024, include_all_series=True)
+        )
+
+        self.assertEqual(len(gaps), 6)
+        self.assertEqual({g.data_type for g in gaps}, {"A", "B", "C"})
+
+    def test_legacy_format_without_cg_dtype_passes_through(self) -> None:
+        """CSVs without a CG_DTYPE column (REF_AREA era) are not filtered."""
+        gaps = self.provider.get_credit_to_gdp(
+            BisCreditGapQuery(countries=("US", "CN"), start_year=2025)
+        )
+
+        self.assertEqual(len(gaps), 4)
+        self.assertTrue(all(gap.data_type == "" for gap in gaps))
 
     def test_builds_correct_url_for_credit_gap(self) -> None:
         self.provider.get_credit_to_gdp(

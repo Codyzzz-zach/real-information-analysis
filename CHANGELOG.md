@@ -3,6 +3,34 @@
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.1] — 2026-09-06
+
+Generalization fixes found by the first live end-to-end test (a real
+question run through the full SKILL.md workflow). Both bugs were invisible
+to the unit suite because the fixtures were overfit to single-shape
+responses — exactly the failure mode the T2/T3 layers exist to catch.
+
+### Fixed
+
+- **EDGAR capital trends: IFRS filers silently returned empty.**
+  `CAPITAL_CONCEPTS` hardcoded the `us-gaap` taxonomy and the lookup
+  swallowed the 404. Foreign private issuers report under `ifrs-full`
+  (TSM's companyfacts contains zero us-gaap tags), so TSM/ASML-class filers
+  produced no trends while the docstring claimed ADR coverage. Tags now
+  resolve per-namespace with us-gaap → ifrs-full fallback, and
+  `CompanyCapitalTrend` records which taxonomy the data came from
+  (`xbrl_namespace`). Verified live: TSM R&D/CapEx/PP&E now return.
+- **BIS credit gap returned ratio variants mislabelled as `gap_pct`.** The
+  WS_CREDIT_GAP dataset carries three CG_DTYPE series per quarter; live
+  cross-check (CN 2024-Q1: A=198.2, B=203.2, C=-4.9; US 2025-Q2: A=141.0,
+  B=153.4, C=-12.4) shows only C is the signed gap — A/B are credit-to-GDP
+  ratios ~200pp apart from it. The parser now keeps the `data_type` code and
+  defaults to returning only the gap series (`include_all_series=True` opts
+  out). Caveat documented: BIS remapped the codes between 2026-07 and 2026-09.
+- **SKILL.md**: Polymarket `slug_contains` documented as a shallow client-side
+  filter over the top-N events by volume — zero results means "not in top-N",
+  not "no such market exists".
+
 ## [1.3.0] — 2026-09-06
 
 Evaluation harness + MCP server (PRODUCTIZATION_PLAN.md §R6).

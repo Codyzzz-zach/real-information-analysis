@@ -1,6 +1,6 @@
 ---
 name: real-information-analysis
-version: 1.3.0
+version: 1.3.1
 description: "Answer prediction questions using market trading data, not opinions. Use when the user asks probability questions about geopolitics, economics, markets, industries, or any topic where real money is being traded on the outcome. Examples: 'What's the probability of WW3?', 'Will there be a recession?', 'Is AI in a bubble?', 'When will the Russia-Ukraine war end?', 'Is it a good time to buy gold?', 'Will SPY drop 5% this month?', 'Is NVDA options premium overpriced?'. The skill reads prices from prediction markets, commodities, equities, options chains, derivatives, yield curves, and currencies, then cross-validates multiple signals to produce a structured probability report."
 metadata: { "openclaw": { "emoji": "📈", "requires": { "bins": ["uv"] } } }
 ---
@@ -415,7 +415,7 @@ Rules: `resolution_criteria` must be objectively checkable at resolution time (a
 
 ## Notes
 
-- Polymarket `slug_contains` search is fuzzy — filter results by title keywords after fetching
+- Polymarket `slug_contains` search is fuzzy AND shallow — it is a client-side keyword filter over only the top-N events sorted by 24h volume. Niche contracts (small volumes, older or closed events) are invisible to it; a zero-result search means "not in the top-N", NOT "no such market exists". Always try broader keywords and report the limitation when a direct contract cannot be found
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
 - YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)

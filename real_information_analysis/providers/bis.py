@@ -13,6 +13,18 @@ from .base import ProviderParseError, SignalProvider
 
 BIS_BASE_URL = "https://stats.bis.org/api/v1"
 
+# The WS_CREDIT_GAP dataset carries three series per country-quarter under the
+# CG_DTYPE dimension. Empirically verified 2026-09-06 (two countries):
+#   CN 2024-Q1: A=198.2  B=203.2  C=-4.9
+#   US 2025-Q2: A=141.0  B=153.4  C=-12.4
+# A/B sit in credit-to-GDP *ratio* magnitude (140-205% of GDP); C is the signed
+# Basel-style credit-to-GDP *gap*. Only C is the measure this provider names.
+# Caveat: BIS has remapped the codes before — the same query in 2026-07
+# labelled the gap "A" — so re-verify against the magnitude signature if
+# values ever look like a ratio. Set ``include_all_series`` to bypass the
+# filter and inspect every series yourself.
+GAP_DATA_TYPE = "C"
+
 
 class BisHttpClient(TextHttpClient, Protocol):
     pass
@@ -35,6 +47,7 @@ class BisPolicyRate:
 class BisCreditGapQuery:
     countries: tuple[str, ...] = ("US",)
     start_year: int = 2015
+    include_all_series: bool = False  # False → only the gap series (CG_DTYPE C)
 
 
 @dataclass(frozen=True)
@@ -42,6 +55,7 @@ class BisCreditGap:
     country: str
     period: str  # e.g. "2025-Q3"
     gap_pct: float  # credit-to-GDP gap percentage points
+    data_type: str = ""  # BIS CG_DTYPE code; "" when the CSV lacks the column
 
 
 class BisProvider(SignalProvider):
@@ -78,7 +92,14 @@ class BisProvider(SignalProvider):
                 "format": "csv",
             },
         )
-        return self._parse_credit_gap_csv(payload)
+        gaps = self._parse_credit_gap_csv(payload)
+        if not query.include_all_series and any(gap.data_type for gap in gaps):
+            # Default to the actual gap series: the dataset also carries
+            # credit-to-GDP *ratio* variants, which would otherwise be
+            # indistinguishable from the gap by column name alone. CSVs
+            # without a CG_DTYPE column (legacy format) are passed through.
+            gaps = [gap for gap in gaps if gap.data_type == GAP_DATA_TYPE]
+        return gaps
 
     def _parse_policy_rates_csv(self, payload: str) -> list[BisPolicyRate]:
         reader = csv.DictReader(StringIO(payload))
@@ -122,6 +143,7 @@ class BisProvider(SignalProvider):
 
         # BIS uses REF_AREA or BORROWERS_CTY depending on the dataset version
         country_col = "REF_AREA" if "REF_AREA" in reader.fieldnames else "BORROWERS_CTY"
+        has_dtype = "CG_DTYPE" in reader.fieldnames
 
         gaps: list[BisCreditGap] = []
         for row in reader:
@@ -135,6 +157,7 @@ class BisProvider(SignalProvider):
                     country=row.get(country_col, ""),
                     period=row["TIME_PERIOD"],
                     gap_pct=value,
+                    data_type=row.get("CG_DTYPE", "") if has_dtype else "",
                 )
             )
         return gaps
