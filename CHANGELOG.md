@@ -8,6 +8,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+# Changelog
+
+All notable changes to real-information-analysis are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [1.3.4] — 2026-09-07
+
+### Added
+
+- `PolymarketEvent.market_by_question(text)` — address a sub-market of a
+  multi-outcome scalar event by question text (case-insensitive substring).
+  Root-cause fix for the "92.75% → 5.8% impossible flip" finding: both
+  numbers were real prices of different sub-markets ("no cuts" vs "1 cut")
+  of the same 13-market scalar event; `primary_market()` ranks by 24h
+  volume and can select a different sub-market between calls. SKILL.md now
+  mandates question-text addressing on scalar events, plus a
+  probabilities-sum-to-≈1 sanity check.
+- Routing guidance (SKILL.md + workspace MCP config): Kalshi works direct
+  and can fail through proxies (observed 3/3) — put its host in NO_PROXY;
+  Polymarket needs the proxy on DNS-polluted networks.
+
 ## [1.3.3] — 2026-09-07
 
 Generalization fix from the second live macro-question test run (Fed

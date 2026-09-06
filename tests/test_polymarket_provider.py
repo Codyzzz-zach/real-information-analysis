@@ -106,7 +106,8 @@ class PolymarketProviderTests(unittest.TestCase):
 class SearchEventsTests(unittest.TestCase):
     """Server-side full-text search (documented /public-search contract)."""
 
-    def _provider_capturing(self, payload: Any) -> tuple[PolymarketProvider, list[tuple[str, Mapping[str, object] | None]]]:
+    @staticmethod
+    def _provider_capturing(payload: Any) -> tuple[PolymarketProvider, list[tuple[str, Mapping[str, object] | None]]]:
         calls: list[tuple[str, Mapping[str, object] | None]] = []
 
         class Fake:
@@ -147,6 +148,48 @@ class SearchEventsTests(unittest.TestCase):
         provider, _ = self._provider_capturing({"events": "not-a-list"})
         with self.assertRaises(ProviderParseError):
             provider.search_events("chip")
+
+
+class MarketByQuestionTests(unittest.TestCase):
+    """Scalar events hold many sub-markets; primary_market() is volume-ranked
+    and unstable across calls on them — address sub-markets by question text
+    (regression for the 92.75% → 5.8% 'impossible flip' finding, which was
+    two different sub-markets of the 'How many Fed rate cuts' event)."""
+
+    def _event_with(self, questions: list[str]) -> Any:
+        markets = [
+            {"question": q, "outcomes": '["Yes", "No"]', "outcomePrices": f'["{0.1 * (i + 1):.4f}", "0"]',
+             "clobTokenIds": '["t", "f"]', "volume24hr": 1000.0}
+            for i, q in enumerate(questions)
+        ]
+        payload = {"events": [{"id": "1", "slug": "scalar", "title": "How many X?",
+                               "markets": markets}]}
+        provider, _ = SearchEventsTests._provider_capturing(payload)
+        return provider.search_events("X", limit=1)[0]
+
+    def test_finds_sub_market_by_question_substring(self) -> None:
+        event = self._event_with([
+            "Will no Fed rate cuts happen in 2026?",
+            "Will 1 Fed rate cut happen in 2026?",
+            "Will 2 Fed rate cuts happen in 2026?",
+        ])
+        market = event.market_by_question("no fed rate cuts")
+        self.assertIsNotNone(market)
+        self.assertIn("no Fed rate cuts", market.question)
+        self.assertAlmostEqual(market.yes_probability, 0.1)
+
+    def test_match_is_case_insensitive_and_first_wins(self) -> None:
+        event = self._event_with(["Will ONE cut happen?", "Will one cut happen twice?"])
+        market = event.market_by_question("ONE CUT")
+        self.assertIn("ONE cut", market.question)
+
+    def test_no_match_returns_none(self) -> None:
+        event = self._event_with(["Will one cut happen?"])
+        self.assertIsNone(event.market_by_question("three cuts"))
+
+    def test_empty_needle_returns_none(self) -> None:
+        event = self._event_with(["Will one cut happen?"])
+        self.assertIsNone(event.market_by_question("  "))
 
 
 if __name__ == "__main__":

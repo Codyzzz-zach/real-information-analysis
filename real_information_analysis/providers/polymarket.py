@@ -147,6 +147,24 @@ class PolymarketEvent:
         # Prefer the currently live market even if an older resolved series has higher lifetime volume.
         return max(self.markets, key=rank)
 
+    def market_by_question(self, text: str) -> PolymarketMarket | None:
+        """Find a sub-market by question text (case-insensitive substring).
+
+        Multi-outcome scalar events ("How many Fed rate cuts in 2026?") hold
+        10+ sub-markets with similar questions, each pricing one outcome.
+        :meth:`primary_market` ranks them by 24h volume, so between two calls
+        it can legitimately select different sub-markets — address the one
+        you mean by question text instead. Returns the first match, or
+        ``None`` when nothing matches.
+        """
+        needle = (text or "").strip().lower()
+        if not needle:
+            return None
+        for market in self.markets:
+            if needle in (market.question or "").lower():
+                return market
+        return None
+
 
 @dataclass(frozen=True)
 class OrderLevel:
