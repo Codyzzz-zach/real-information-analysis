@@ -415,7 +415,7 @@ Rules: `resolution_criteria` must be objectively checkable at resolution time (a
 
 ## Notes
 
-- Polymarket: use `pm.search_events("free text")` for finding contracts — it is server-side full-text search over the whole catalog (relevance-ranked), including low-volume niche contracts. `list_events(slug_contains=...)` is the legacy path: a client-side keyword filter over only the top-N events **by trading volume**, so a zero result there means "not in the top-N", NOT "no such market exists". (Note: gamma-api is DNS-polluted on some networks — intermittent connection resets are the network, not the code)
+- Polymarket: use `pm.search_events("free text")` for finding contracts — it is server-side full-text search over the whole catalog (relevance-ranked), including low-volume niche contracts. `list_events(slug_contains=...)` is the legacy path: a client-side keyword filter over only the top-N events **by trading volume**, so a zero result there means "not in the top-N", NOT "no such market exists". (Network note: gamma-api is DNS-polluted on some networks — intermittent resets are the network, not the code. If direct calls fail, route through the local proxy: `export HTTPS_PROXY=http://127.0.0.1:7890` — the provider honors standard proxy env vars. Verified working via proxy on 2026-09-06)
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
 - YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)
