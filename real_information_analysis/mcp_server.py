@@ -276,17 +276,20 @@ def build_server(overrides: McpOverrides | None = None) -> McpServer:
 
     register(
         "prediction_markets_search",
-        "Search Polymarket event contracts by slug/title keyword. Returns events with "
-        "markets, YES prices, volume and liquidity. Discount thin books — pair with "
-        "probability_reliability rules.",
+        "Full-text search across the entire Polymarket catalog (server-side, "
+        "relevance-ranked). Returns events with markets, YES prices, volume and "
+        "liquidity — including low-volume niche contracts. Discount thin books — "
+        "pair with probability_reliability rules.",
         _schema({
-            "query": (str, "Slug/title keyword, e.g. 'fed', 'recession', 'ceasefire'"),
+            "query": (str, "Free-text search, e.g. 'chip export', 'recession', 'ceasefire'"),
             "limit": (int, "Max events to return (default 10)"),
+            "status": (str, "active/resolved (default active)"),
         }, required=["query"]),
-        lambda arguments: polymarket.list_events(PolymarketEventQuery(
-            slug_contains=arguments["query"],
+        lambda arguments: polymarket.search_events(
+            str(arguments["query"]),
             limit=int(arguments.get("limit", 10)),
-        )),
+            status=str(arguments.get("status", "active")),
+        ),
     )
 
     register(

@@ -1,6 +1,6 @@
 ---
 name: real-information-analysis
-version: 1.3.1
+version: 1.3.2
 description: "Answer prediction questions using market trading data, not opinions. Use when the user asks probability questions about geopolitics, economics, markets, industries, or any topic where real money is being traded on the outcome. Examples: 'What's the probability of WW3?', 'Will there be a recession?', 'Is AI in a bubble?', 'When will the Russia-Ukraine war end?', 'Is it a good time to buy gold?', 'Will SPY drop 5% this month?', 'Is NVDA options premium overpriced?'. The skill reads prices from prediction markets, commodities, equities, options chains, derivatives, yield curves, and currencies, then cross-validates multiple signals to produce a structured probability report."
 metadata: { "openclaw": { "emoji": "📈", "requires": { "bins": ["uv"] } } }
 ---
@@ -167,7 +167,7 @@ fear_greed = FearGreedProvider()
 fred = FredProvider(api_key="YOUR_FRED_API_KEY")  # free at https://fredaccount.stlouisfed.org/apikeys
 
 result = gather({
-    "pm_events": lambda: pm.list_events(PolymarketEventQuery(slug_contains="...", limit=10)),
+    "pm_events": lambda: pm.search_events("...", limit=10),
     "yield_curve": lambda: treasury.latest_yield_curve(),
     "gold": lambda: yahoo.get_history(PriceHistoryQuery(symbol="GC=F", limit=30)),
     # Institutional positioning
@@ -415,7 +415,7 @@ Rules: `resolution_criteria` must be objectively checkable at resolution time (a
 
 ## Notes
 
-- Polymarket `slug_contains` search is fuzzy AND shallow — it is a client-side keyword filter over only the top-N events sorted by 24h volume. Niche contracts (small volumes, older or closed events) are invisible to it; a zero-result search means "not in the top-N", NOT "no such market exists". Always try broader keywords and report the limitation when a direct contract cannot be found
+- Polymarket: use `pm.search_events("free text")` for finding contracts — it is server-side full-text search over the whole catalog (relevance-ranked), including low-volume niche contracts. `list_events(slug_contains=...)` is the legacy path: a client-side keyword filter over only the top-N events **by trading volume**, so a zero result there means "not in the top-N", NOT "no such market exists". (Note: gamma-api is DNS-polluted on some networks — intermittent connection resets are the network, not the code)
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
 - YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)

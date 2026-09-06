@@ -10,6 +10,7 @@ from ._coerce import _coerce_float, _coerce_int
 from .base import ProviderParseError, SignalProvider
 
 GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
+POLYMARKET_PUBLIC_SEARCH_URL = f"{GAMMA_BASE_URL}/public-search"
 CLOB_BASE_URL = "https://clob.polymarket.com"
 
 
@@ -269,6 +270,39 @@ class PolymarketProvider(SignalProvider):
         if not isinstance(payload, dict):
             raise ProviderParseError("expected order book payload to be an object")
         return self._parse_order_book(payload)
+
+    def search_events(self, query: str, *, limit: int = 10, status: str = "active") -> list[PolymarketEvent]:
+        """Full-text search across the entire Polymarket catalog (server-side).
+
+        Uses the documented ``/public-search`` endpoint (free-text,
+        relevance-ranked, no auth — response is a composite object with
+        ``events``/``tags``/``profiles``). Unlike
+        :meth:`list_events` with ``slug_contains`` — which only filters the
+        top-N events **by trading volume** and therefore misses niche or
+        low-volume contracts — this reaches the whole catalog.
+
+        Raises :class:`ProviderParseError` if the payload shape deviates from
+        the documented contract (loud, never silently empty).
+        """
+        text = (query or "").strip()
+        if not text:
+            raise ValueError("search query must be non-empty")
+        payload = self.http_client.get_json(
+            POLYMARKET_PUBLIC_SEARCH_URL,
+            params={
+                "q": text,
+                "events_status": status,
+                "limit_per_type": limit,
+            },
+        )
+        if not isinstance(payload, Mapping):
+            raise ProviderParseError("expected public-search payload to be an object")
+        events_raw = payload.get("events")
+        if events_raw is None:
+            raise ProviderParseError("public-search payload missing 'events' key")
+        if not isinstance(events_raw, list):
+            raise ProviderParseError("expected 'events' to be a list")
+        return [self._parse_event(item) for item in events_raw]
 
     def _parse_event(self, raw_event: Mapping[str, Any]) -> PolymarketEvent:
         raw_markets = raw_event.get("markets")

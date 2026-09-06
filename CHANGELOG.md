@@ -3,6 +3,21 @@
 All notable changes to real-information-analysis are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.2] — 2026-09-06
+
+### Added
+
+- `PolymarketProvider.search_events()` — server-side full-text search via the
+  documented `/public-search` endpoint (relevance-ranked, whole catalog, no
+  auth). Replaces the top-N-by-volume client-side filter as the way to find
+  contracts: two live tests had reported "no relevant market" because niche
+  contracts sit far below the sports/election events that dominate the
+  volume ranking. Shape drift fails loudly (`ProviderParseError`), never
+  silently empty. The MCP tool `prediction_markets_search` now uses it.
+- Network note (SKILL.md): `gamma-api.polymarket.com` is DNS-polluted on
+  some networks (resolves intermittently to Meta IP ranges) — intermittent
+  connection resets are the network, not the code.
+
 ## [1.3.1] — 2026-09-06
 
 Generalization fixes found by the first live end-to-end test (a real

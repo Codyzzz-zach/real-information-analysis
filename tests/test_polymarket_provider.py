@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from real_information_analysis.providers import PolymarketEventQuery, PolymarketProvider
+from real_information_analysis.providers.base import ProviderParseError
 
 
 def _fixture(name: str) -> Any:
@@ -100,6 +101,52 @@ class PolymarketProviderTests(unittest.TestCase):
         self.assertAlmostEqual(book.spread or 0.0, 0.01)
         self.assertEqual(len(book.bids), 3)
         self.assertEqual(len(book.asks), 3)
+
+
+class SearchEventsTests(unittest.TestCase):
+    """Server-side full-text search (documented /public-search contract)."""
+
+    def _provider_capturing(self, payload: Any) -> tuple[PolymarketProvider, list[tuple[str, Mapping[str, object] | None]]]:
+        calls: list[tuple[str, Mapping[str, object] | None]] = []
+
+        class Fake:
+            def get_json(self, url: str, *, params: Mapping[str, object] | None = None) -> Any:
+                calls.append((url, params))
+                return payload
+
+        return PolymarketProvider(http_client=Fake()), calls
+
+    def test_search_parses_composite_payload(self) -> None:
+        event = _fixture("polymarket_events.json")[0]
+        payload = {"events": [event], "tags": [{"id": "1", "label": "Tech"}], "profiles": []}
+        provider, calls = self._provider_capturing(payload)
+
+        events = provider.search_events("chip export", limit=5)
+
+        url, params = calls[0]
+        self.assertIn("/public-search", url)
+        assert params is not None
+        self.assertEqual(params["q"], "chip export")
+        self.assertEqual(params["limit_per_type"], 5)
+        self.assertEqual(params["events_status"], "active")
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].slug, "microstrategy-sell-any-bitcoin-in-2025")
+
+    def test_search_empty_query_raises(self) -> None:
+        provider, _ = self._provider_capturing({"events": []})
+        with self.assertRaises(ValueError):
+            provider.search_events("   ")
+
+    def test_search_missing_events_key_raises_loudly(self) -> None:
+        provider, _ = self._provider_capturing({"tags": [], "profiles": []})
+        with self.assertRaises(ProviderParseError):
+            provider.search_events("chip")
+
+    def test_search_non_list_events_raises_loudly(self) -> None:
+        provider, _ = self._provider_capturing({"events": "not-a-list"})
+        with self.assertRaises(ProviderParseError):
+            provider.search_events("chip")
 
 
 if __name__ == "__main__":
