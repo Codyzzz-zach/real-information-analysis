@@ -20,10 +20,13 @@ apply as a confidence discount, keeping the judgement explicit.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping, Sequence
 
 __all__ = [
     "ReliabilityVerdict",
+    "ScalarEventConsistency",
     "probability_reliability",
+    "scalar_event_consistency",
 ]
 
 
@@ -98,3 +101,119 @@ def probability_reliability(
         flags.append("thin-market")
 
     return ReliabilityVerdict(label=label, discount_factor=factor, flags=tuple(flags))
+
+
+# How far sub-market YES probabilities of one multi-outcome event may sum
+# above 1 before the ladder is judged inconsistent. Real books sum to ~1.01
+# (spread + vig); the 13-market Fed-cuts ladder observed live summed to
+# 1.0115. Far beyond that, at least one leg was misread — usually a price
+# taken from the wrong sub-market (the 92.75% -> 5.8% "impossible flip").
+_SCALAR_SUM_TOLERANCE = 0.05
+
+# How far any single leg may fall below its neighbours' sum path before the
+# monotonicity break is flagged (noise floor for thin legs quoted 0.00/0.01).
+_MONOTONICITY_TOLERANCE = 0.02
+
+
+@dataclass(frozen=True)
+class ScalarEventConsistency:
+    """Verdict on whether one event's sub-market prices can all be true.
+
+    Multi-outcome events price their legs under one of two semantics, and
+    each has its own coherence invariant:
+
+    * **exclusive outcomes** (Polymarket "exactly N cuts" scalar events) —
+      legs are mutually exclusive and exhaustive, so YES probabilities
+      must sum to ≈1;
+    * **nested ladder** (Kalshi KXFED "above X%") — each leg implies the
+      previous one, so probabilities must be non-increasing in X. The
+      plain sum is meaningless here (legs overlap).
+
+    A leg that breaks its invariant means the price came from a different
+    sub-market than the label claims — the signature of both live
+    misreading incidents this module exists to catch.
+    """
+
+    total_legs: int
+    priced_legs: int
+    probability_sum: float | None
+    flags: tuple[str, ...]  # "sum-exceeds-1", "sum-below-1", "monotonicity-break", "unpriced"
+    ok: bool
+
+    @property
+    def detail(self) -> str:
+        if not self.flags:
+            return f"consistent ({self.priced_legs}/{self.total_legs} legs priced)"
+        return ", ".join(self.flags)
+
+
+def scalar_event_consistency(
+    probabilities: Mapping[str, float | None],
+    *,
+    order: Sequence[str] | None = None,
+    descending: bool = False,
+) -> ScalarEventConsistency:
+    """Check that one multi-outcome event's sub-market prices cohere.
+
+    Args:
+        probabilities: label -> YES probability per sub-market (``None`` =
+            unpriced leg, excluded from checks). Labels are the sub-market
+            question text or ticker — anything the caller can order.
+        order: explicit ordering of the labels for the ladder
+            (monotonicity) check. When omitted, insertion order of the
+            mapping is used. Pass an explicit ``order`` for unordered
+            mappings.
+        descending: which semantics the legs follow —
+
+            * ``False`` (default) — **exclusive outcomes** ("exactly N
+              cuts"): the sum check applies, monotonicity does not (the
+              distribution over outcomes is typically unimodal, not flat).
+            * ``True`` — **nested ladder** ("above X%"): the monotonicity
+              check applies (non-increasing in X), the sum check does not
+              (legs overlap, so any sum is legitimate).
+
+    Returns:
+        :class:`ScalarEventConsistency` — ``ok`` is ``True`` only when the
+        applicable invariant holds (sum within
+        :data:`_SCALAR_SUM_TOLERANCE` of 1, or ladder never rising by more
+        than :data:`_MONOTONICITY_TOLERANCE`) and at least one leg is
+        priced. An event with zero priced legs fails closed ("unpriced"):
+        a book you cannot verify is not a book you verified.
+
+    The flags are a *diagnostic*, not a probability adjustment: a flagged
+    ladder means at least one leg was misread — re-address each sub-market
+    by its own question text / ticker before quoting any leg as "the"
+    probability (see SKILL.md multi-outcome addressing rule).
+    """
+    labels = list(order) if order is not None else list(probabilities)
+    priced = [
+        (label, probabilities[label])
+        for label in labels
+        if probabilities.get(label) is not None
+    ]
+
+    flags: list[str] = []
+    if priced:
+        total = sum(value for _, value in priced)
+        if not descending:
+            if total > 1.0 + _SCALAR_SUM_TOLERANCE:
+                flags.append("sum-exceeds-1")
+            elif total < 1.0 - _SCALAR_SUM_TOLERANCE:
+                flags.append("sum-below-1")
+    else:
+        total = None
+        flags.append("unpriced")
+
+    if descending and len(priced) >= 2:
+        for (_, prev), (_, curr) in zip(priced, priced[1:]):
+            if curr > prev + _MONOTONICITY_TOLERANCE:
+                flags.append("monotonicity-break")
+                break
+
+    return ScalarEventConsistency(
+        total_legs=len(labels),
+        priced_legs=len(priced),
+        probability_sum=total,
+        flags=tuple(flags),
+        ok=not flags,
+    )

@@ -183,6 +183,23 @@ class MarketByQuestionTests(unittest.TestCase):
         market = event.market_by_question("ONE CUT")
         self.assertIn("ONE cut", market.question)
 
+    def test_exact_match_beats_substring_and_number_prefix(self) -> None:
+        # "1 cut" is a substring of "11 cuts" — the exact match must win
+        # regardless of payload order, or the wrong outcome gets priced.
+        event = self._event_with([
+            "Will 11 Fed rate cuts happen in 2026?",
+            "Will 1 Fed rate cut happen in 2026?",
+        ])
+        market = event.market_by_question("will 1 fed rate cut happen in 2026?")
+        self.assertIsNotNone(market)
+        self.assertEqual(market.question, "Will 1 Fed rate cut happen in 2026?")
+
+    def test_substring_fallback_when_no_exact_match(self) -> None:
+        event = self._event_with(["Will 11 Fed rate cuts happen in 2026?"])
+        market = event.market_by_question("11 fed rate cuts")
+        self.assertIsNotNone(market)
+        self.assertIn("11 Fed rate cuts", market.question)
+
     def test_no_match_returns_none(self) -> None:
         event = self._event_with(["Will one cut happen?"])
         self.assertIsNone(event.market_by_question("three cuts"))

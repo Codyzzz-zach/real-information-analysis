@@ -148,18 +148,27 @@ class PolymarketEvent:
         return max(self.markets, key=rank)
 
     def market_by_question(self, text: str) -> PolymarketMarket | None:
-        """Find a sub-market by question text (case-insensitive substring).
+        """Find a sub-market by question text (case-insensitive).
 
         Multi-outcome scalar events ("How many Fed rate cuts in 2026?") hold
         10+ sub-markets with similar questions, each pricing one outcome.
         :meth:`primary_market` ranks them by 24h volume, so between two calls
         it can legitimately select different sub-markets — address the one
-        you mean by question text instead. Returns the first match, or
-        ``None`` when nothing matches.
+        you mean by question text instead.
+
+        Exact (case-insensitive) matches win over substrings: on scalar
+        events the questions differ by a number ("Will 1 cut..." vs
+        "Will 11 cuts..."), and "1 cut" is a substring of "11 cuts" — a
+        plain substring scan would silently return the wrong outcome
+        whenever the payload order puts it first. Returns the first match
+        (exact before substring), or ``None`` when nothing matches.
         """
         needle = (text or "").strip().lower()
         if not needle:
             return None
+        for market in self.markets:
+            if (market.question or "").strip().lower() == needle:
+                return market
         for market in self.markets:
             if needle in (market.question or "").lower():
                 return market

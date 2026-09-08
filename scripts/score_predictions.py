@@ -10,6 +10,7 @@ if str(PACKAGE_ROOT) not in sys.path:
 
 from real_information_analysis.scoring import (
     PredictionLogError,
+    ledger_coherence_lint,
     ledger_composition_check,
     load_predictions,
     render_report,
@@ -39,6 +40,13 @@ def main() -> int:
         help="Also lint the fast/slow horizon mix (>=50%% of entries must "
         "resolve within 180 days) and exit non-zero when it fails.",
     )
+    parser.add_argument(
+        "--check-coherence",
+        action="store_true",
+        help="Also lint semantic coherence (exclusive-group sums, "
+        "polarity traces, market_implied traceability). Errors exit "
+        "non-zero; warnings are printed but do not fail.",
+    )
     args = parser.parse_args()
 
     if args.buckets < 1:
@@ -53,6 +61,19 @@ def main() -> int:
 
     print(render_report(score_predictions(predictions, bucket_count=args.buckets)))
 
+    exit_code = 0
+
+    if args.check_coherence:
+        coherence = ledger_coherence_lint(predictions)
+        if coherence.issues:
+            print(f"\nCoherence: {len(coherence.issues)} finding(s)")
+            for issue in coherence.issues:
+                print(f"  [{issue.severity}] {issue.code}: {issue.message}")
+        else:
+            print("\nCoherence: clean")
+        if not coherence.ok:
+            exit_code = 1
+
     if args.check_composition:
         composition = ledger_composition_check(predictions)
         status = "OK" if composition.ok else "FAIL — calibration loop too slow"
@@ -60,9 +81,10 @@ def main() -> int:
             f"\nComposition: {composition.fast}/{composition.total} fast (<=180d), "
             f"{composition.slow} slow, {composition.undated} undated — {status}"
         )
-        return 0 if composition.ok else 1
+        if not composition.ok:
+            exit_code = 1
 
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

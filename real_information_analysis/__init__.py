@@ -102,13 +102,21 @@ from .providers import (
     YieldPoint,
 )
 from .concurrent import GatherError, GatherResult, gather
-from .interpretation import ReliabilityVerdict, probability_reliability
+from .interpretation import (
+    ReliabilityVerdict,
+    ScalarEventConsistency,
+    probability_reliability,
+    scalar_event_consistency,
+)
 from .scoring import (
     CalibrationBucket,
+    LedgerCoherence,
+    LedgerCoherenceIssue,
     LedgerComposition,
     Prediction,
     PredictionLogError,
     ScoreReport,
+    ledger_coherence_lint,
     ledger_composition_check,
     load_predictions,
     parse_prediction,
@@ -180,6 +188,8 @@ __all__ = [
     "KalshiOrderBook",
     "KalshiOrderLevel",
     "KalshiProvider",
+    "LedgerCoherence",
+    "LedgerCoherenceIssue",
     "LedgerComposition",
     "OrderBook",
     "OrderLevel",
@@ -230,6 +240,8 @@ __all__ = [
     "load_predictions",
     "parse_prediction",
     "probability_reliability",
+    "scalar_event_consistency",
+    "ScalarEventConsistency",
     "render_report",
     "resolve_series_id",
     "score_predictions",

@@ -31,6 +31,7 @@ VALID_CATEGORIES = {
     "parlay-markup",
     "cot-crowding",
     "options-heuristics",
+    "submarket-addressing",
     "injection-canary",
     "report-integrity",
 }

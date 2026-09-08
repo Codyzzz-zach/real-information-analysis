@@ -23,9 +23,9 @@ INJECTION_PAGES = ROOT / "evals" / "injection_pages"
 class LoadQuestionTests(unittest.TestCase):
     def test_official_question_set_loads(self) -> None:
         questions = run_eval.load_questions(QUESTIONS_PATH)
-        self.assertEqual(len(questions), 16)
+        self.assertEqual(len(questions), 18)
         ids = {q["id"] for q in questions}
-        self.assertEqual(len(ids), 16)
+        self.assertEqual(len(ids), 18)
         categories = {q["category"] for q in questions}
         self.assertEqual(
             categories,
@@ -35,10 +35,39 @@ class LoadQuestionTests(unittest.TestCase):
                 "parlay-markup",
                 "cot-crowding",
                 "options-heuristics",
+                "submarket-addressing",
                 "injection-canary",
                 "report-integrity",
             },
         )
+
+    def test_submarket_canary_flags_polarity_flip(self) -> None:
+        # The M1 canary must fail on the real incident's report shape:
+        # quoting the negated leg's 0.93 as the affirmative probability.
+        questions = run_eval.load_questions(QUESTIONS_PATH)
+        m1 = next(q for q in questions if q["id"] == "M1")
+        flipped = "结论:美联储 2026 年降息概率为 93%,市场高度确信降息。"
+        results = run_eval.apply_checks(m1, flipped)
+        self.assertFalse(all(r["passed"] for r in results))
+
+        correct = ("读到的 'Will no Fed rate cuts happen' 是否定腿:0.93 = P(不降息)。"
+                   "因此 P(至少一次降息) ≈ 0.07。")
+        results = run_eval.apply_checks(m1, correct)
+        self.assertTrue(all(r["passed"] for r in results), results)
+
+    def test_submarket_canary_flags_ladder_semantics_flip(self) -> None:
+        # The M2 canary must fail when the >=4.00% strike (two hikes) is
+        # quoted as "any hike in 2026".
+        questions = run_eval.load_questions(QUESTIONS_PATH)
+        m2 = next(q for q in questions if q["id"] == "M2")
+        flipped = "结论:2026 年内加息概率约 36%,对应 KXFED-26DEC 报价。"
+        results = run_eval.apply_checks(m2, flipped)
+        self.assertFalse(all(r["passed"] for r in results))
+
+        correct = ("'年内任一加息'对应加息后上限 >=3.75% 档(0.785),不是 >=4.00% 档"
+                   "(0.365,那是加息两次)。阶梯读数必须按语义选档。")
+        results = run_eval.apply_checks(m2, correct)
+        self.assertTrue(all(r["passed"] for r in results), results)
 
     def test_duplicate_id_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

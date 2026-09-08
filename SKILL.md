@@ -1,6 +1,6 @@
 ---
 name: real-information-analysis
-version: 1.3.4
+version: 1.3.5
 description: "Answer prediction questions using market trading data, not opinions. Use when the user asks probability questions about geopolitics, economics, markets, industries, or any topic where real money is being traded on the outcome. Examples: 'What's the probability of WW3?', 'Will there be a recession?', 'Is AI in a bubble?', 'When will the Russia-Ukraine war end?', 'Is it a good time to buy gold?', 'Will SPY drop 5% this month?', 'Is NVDA options premium overpriced?'. The skill reads prices from prediction markets, commodities, equities, options chains, derivatives, yield curves, and currencies, then cross-validates multiple signals to produce a structured probability report."
 metadata: { "openclaw": { "emoji": "📈", "requires": { "bins": ["uv"] } } }
 ---
@@ -130,7 +130,7 @@ Only keep signals that pass all four checks. This reduces noise, saves fetch tim
 
 ### Step 4: Fetch data
 
-Use real-information-analysis's Python providers to fetch structured data, calling all sources in parallel with `gather()` (including web search):
+Use real-information-analysis's Python providers to fetch structured data, calling all sources in parallel with `gather()` (including web search). The `real_information_analysis` package ships next to this SKILL.md (repo root in a checkout, bundle root in a deployed skill) — if imports fail you are running elsewhere: prepend that directory (`PYTHONPATH=<skill-dir> python3 ...` or `sys.path.insert(0, "<skill-dir>")`):
 
 ```python
 from real_information_analysis import (
@@ -406,7 +406,7 @@ Every row of the Probability Estimates table above must ALSO be emitted as one J
 
 `{"question": "...", "scenario": "...", "probability": <final>, "market_implied": <or null>, "base_rate": <or null>, "created_at": "YYYY-MM-DD", "resolve_by": "YYYY-MM-DD", "resolution_criteria": "objective, checkable condition — who declares what, by when", "outcome": null}`
 
-Rules: `resolution_criteria` must be objectively checkable at resolution time (a forecast you cannot score is a forecast you did not make — do not register unfalsifiable ones); `resolve_by` must not exceed the time horizon used in the report; never edit `probability` after registration; **mix horizons — at least half of registered predictions should resolve within ~180 days**, so the calibration loop closes fast enough to matter (`ledger_composition_check` enforces ≥50%). When entries come due, resolve them (`outcome`: true/false) and run `python3 scripts/score_predictions.py` to get Brier score + calibration. Schema details: [predictions/README.md](predictions/README.md).
+Rules: `resolution_criteria` must be objectively checkable at resolution time (a forecast you cannot score is a forecast you did not make — do not register unfalsifiable ones); `resolve_by` must not exceed the time horizon used in the report; never edit `probability` after registration; **`question`, `scenario` and `resolution_criteria` must assert the SAME event in the SAME polarity** — a question asking "will X happen?" registered with a scenario describing "X does not happen" audited as a 97% forecast of X is exactly the polarity error that makes a ledger unreadable (when quoting a sub-market price in `market_implied`, also record `market_ref`: the sub-market's question text or ticker, so the number stays traceable); mutually-exclusive outcomes registered from one event share a `mutually_exclusive_group` id so `ledger_coherence_lint()` can flag groups whose probabilities sum above 1; **mix horizons — at least half of registered predictions should resolve within ~180 days**, so the calibration loop closes fast enough to matter (`ledger_composition_check` enforces ≥50%). When entries come due, resolve them (`outcome`: true/false) and run `python3 scripts/score_predictions.py` to get Brier score + calibration. Schema details: [predictions/README.md](predictions/README.md).
 
 ---
 *Data sources: [list all structured and web data sources]*
@@ -416,7 +416,7 @@ Rules: `resolution_criteria` must be objectively checkable at resolution time (a
 ## Notes
 
 - Polymarket: use `pm.search_events("free text")` for finding contracts — it is server-side full-text search over the whole catalog (relevance-ranked), including low-volume niche contracts. `list_events(slug_contains=...)` is the legacy path: a client-side keyword filter over only the top-N events **by trading volume**, so a zero result there means "not in the top-N", NOT "no such market exists". (Network note: gamma-api is DNS-polluted on some networks — intermittent resets are the network, not the code. If direct calls fail, route through your local proxy with standard env vars, e.g. `export HTTPS_PROXY=http://127.0.0.1:7890` (Clash default; use your own proxy port) — the provider honors HTTPS_PROXY/HTTP_PROXY/NO_PROXY. Most regions outside mainland China connect directly with no setup)
-- Polymarket scalar events (e.g. "How many Fed rate cuts in 2026?") hold 10+ sub-markets, one per outcome. `primary_market()` ranks by 24h volume and can select a **different sub-market between calls** — never treat it as "the answer" on scalar events. Address the outcome you mean by question text via `event.market_by_question("no Fed rate cuts")`, and sanity-check that the sub-markets' YES probabilities sum to ≈1
+- **Multi-outcome events: address the sub-market you mean, never a volume-ranked aggregate.** Events holding several sub-markets (Polymarket scalar events like "How many Fed rate cuts in 2026?"; Kalshi strike-ladder events like KXFED) price each outcome in its own sub-market. `primary_market()` / `most_active_market()` rank by 24h volume and can select a **different sub-market between calls** (the "92.75% → 5.8% impossible flip" was two different sub-markets of one event). Address sub-markets explicitly — Polymarket: `event.market_by_question("no Fed rate cuts")` (exact question text beats substring, so "1 cut" cannot match "11 cuts"); Kalshi: `event.market_by_ticker("KXFED-26SEP-T3.75")` or `get_market(ticker)`. Then sanity-check the whole event with `scalar_event_consistency(...)` from `real_information_analysis.interpretation`: exclusive outcomes ("exactly N cuts") must sum to ≈1; nested ladders ("above X%") must be non-increasing in X. A flagged ladder means at least one leg was misread — re-address each leg before quoting any of them
 - YahooPriceProvider uses Yahoo Finance symbols: futures use `=F` suffix (e.g. `GC=F`, `CL=F`, `HG=F`), forex uses `=X` suffix (e.g. `EURUSD=X`), US stocks/ETFs use plain tickers (e.g. `SPY`, `LMT`)
 - YahooPriceProvider fetches directly from Yahoo's chart API (pure stdlib, no install needed)
 - European stocks available on Yahoo Finance with exchange suffix (e.g. `RHM.DE` for Rheinmetall, `BA.L` for BAE Systems)

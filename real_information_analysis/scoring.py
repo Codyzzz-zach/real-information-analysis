@@ -26,10 +26,13 @@ from .providers._coerce import _coerce_float
 
 __all__ = [
     "CalibrationBucket",
+    "LedgerCoherence",
+    "LedgerCoherenceIssue",
     "LedgerComposition",
     "Prediction",
     "PredictionLogError",
     "ScoreReport",
+    "ledger_coherence_lint",
     "ledger_composition_check",
     "load_predictions",
     "parse_prediction",
@@ -126,6 +129,8 @@ class Prediction:
     outcome: bool | None = None
     resolved_at: str | None = None
     notes: str | None = None
+    mutually_exclusive_group: str | None = None
+    market_ref: str | None = None
 
     @property
     def resolved(self) -> bool:
@@ -150,6 +155,8 @@ def parse_prediction(record: Mapping[str, Any], *, line_ref: str) -> Prediction:
         outcome=_parse_outcome(record.get("outcome"), line_ref=line_ref),
         resolved_at=_required_str(record, "resolved_at", line_ref=line_ref),
         notes=_required_str(record, "notes", line_ref=line_ref),
+        mutually_exclusive_group=_required_str(record, "mutually_exclusive_group", line_ref=line_ref),
+        market_ref=_required_str(record, "market_ref", line_ref=line_ref),
     )
 
 
@@ -379,6 +386,127 @@ def ledger_composition_check(
         fast_share=share,
         ok=total > 0 and share >= min_fast_share,
     )
+
+
+# ---------------------------------------------------------------------------
+# Coherence lint — semantic invariants the JSONL schema cannot express
+# ---------------------------------------------------------------------------
+
+# Negation tokens used by the polarity heuristic. A ledger question like
+# "Will the Fed cut?" whose market_ref says "no cuts" is the exact shape of
+# the live FOMC entry that audited as a 97% cut forecast while every other
+# field described "no cut".
+_NEGATION_TOKENS = ("no ", "not ", "不", "未", "无 ")
+
+# Exclusive groups may sum slightly above 1: real books carry spread + vig
+# (the 13-leg Fed-cuts event summed to 1.0115 live).
+_GROUP_SUM_TOLERANCE = 0.05
+
+
+@dataclass(frozen=True)
+class LedgerCoherenceIssue:
+    """One coherence finding. *severity* is ``"error"`` (invariant broken)
+    or ``"warning"`` (heuristic signal a human should eyeball)."""
+
+    severity: str  # "error" | "warning"
+    code: str
+    message: str
+
+
+@dataclass(frozen=True)
+class LedgerCoherence:
+    """Result of the semantic coherence lint on a prediction ledger.
+
+    See :func:`ledger_coherence_lint` for what is checked and, just as
+    important, what deliberately is not (polarity itself is not reliably
+    machine-checkable — the lint flags its *traces*, not the sin).
+    """
+
+    total: int
+    issues: tuple[LedgerCoherenceIssue, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not any(issue.severity == "error" for issue in self.issues)
+
+
+def ledger_coherence_lint(
+    predictions: Iterable[Prediction],
+    *,
+    group_sum_tolerance: float = _GROUP_SUM_TOLERANCE,
+) -> LedgerCoherence:
+    """Lint semantic coherence across ledger entries (write-time defence).
+
+    The composition check guards the *cadence* of the calibration loop;
+    this one guards its *readability and arithmetic*. Three checks, ordered
+    from mechanically provable to heuristic:
+
+    1. **group-sum** (error) — entries sharing a ``mutually_exclusive_group``
+       id describe mutually exclusive outcomes of one event, so their
+       probabilities must sum to ≤ 1 + tolerance. (The FOMC pair that
+       motivated this lint summed to 1.42.)
+    2. **negation-polarity** (warning) — when ``market_ref`` (the sub-market
+       question text / ticker the ``market_implied`` number came from)
+       contains a negation token that the ledger ``question`` lacks, the
+       entry was plausibly registered with inverted polarity: the question
+       asks "X?" while the price is for "not X". A warning, not an error —
+       "no cuts" inside "Will there be no cuts?" is legitimate, so a human
+       reads the flagged rows.
+    3. **market-implied-untraceable** (warning) — a ``market_implied``
+       probability without a ``market_ref`` cannot be audited back to the
+       sub-market it was read from; on multi-outcome events that is exactly
+       how misread prices enter the ledger silently.
+
+    Deliberately NOT checked: whether question/scenario/criteria share one
+    polarity in general — that is a language-understanding judgement no
+    keyword pass can make reliably. The two live incidents both left
+    *traces* (a summed group, a negated market_ref); the lint chases traces.
+    """
+    entries = list(predictions)
+    issues: list[LedgerCoherenceIssue] = []
+
+    groups: dict[str, list[Prediction]] = {}
+    for index, prediction in enumerate(entries):
+        ref = f"#{index + 1} ({prediction.question[:40]}...)"
+        if prediction.mutually_exclusive_group:
+            groups.setdefault(prediction.mutually_exclusive_group, []).append(prediction)
+
+        if prediction.market_implied is not None and not (prediction.market_ref or "").strip():
+            issues.append(LedgerCoherenceIssue(
+                severity="warning",
+                code="market-implied-untraceable",
+                message=f"{ref}: market_implied={prediction.market_implied} has no "
+                        "market_ref — the sub-market it was read from is not recorded "
+                        "(misread prices on multi-outcome events enter silently this way)",
+            ))
+
+        lowered_ref = (prediction.market_ref or "").lower()
+        if prediction.market_ref and prediction.market_implied is not None:
+            question_lower = prediction.question.lower()
+            ref_has_negation = any(token in lowered_ref for token in _NEGATION_TOKENS)
+            question_has_negation = any(token in question_lower for token in _NEGATION_TOKENS)
+            if ref_has_negation and not question_has_negation:
+                issues.append(LedgerCoherenceIssue(
+                    severity="warning",
+                    code="negation-polarity",
+                    message=f"{ref}: market_ref {prediction.market_ref!r} is negated "
+                            "while the question is not — entry may be registered with "
+                            "inverted polarity (question asks X, price is for not-X)",
+                ))
+
+    for group_id, members in sorted(groups.items()):
+        total = sum(member.probability for member in members)
+        if total > 1.0 + group_sum_tolerance:
+            issues.append(LedgerCoherenceIssue(
+                severity="error",
+                code="group-sum",
+                message=f"mutually_exclusive_group {group_id!r}: probabilities sum to "
+                        f"{total:.2f} (> {1.0 + group_sum_tolerance:.2f}) across "
+                        f"{len(members)} exclusive outcomes — at least one entry "
+                        "mislabels what its number prices",
+            ))
+
+    return LedgerCoherence(total=len(entries), issues=tuple(issues))
 
 
 def _format_baseline_line(label: str, baseline_brier: float | None, skill: float | None) -> str | None:

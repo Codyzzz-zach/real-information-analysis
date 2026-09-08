@@ -29,7 +29,17 @@
 | `resolution_criteria` | ✅ | **客观可核查**的判定条件：谁宣布、以什么为准、截至何时 |
 | `outcome` | ✅ | `null` = 未结算；到期后填 `true`/`false`（也接受 `1`/`0`/`yes`/`no`） |
 | `resolved_at` | 结算时填 | 实际结算日期 |
+| `market_ref` | 推荐（有 `market_implied` 时） | 该市场读数来自哪个子市场——子市场的问题原文或 ticker（如 `KXFED-26DEC-T3.75`）。多结果事件里每个子市场是独立价格，不记 ref 的 market_implied 无法审计 |
+| `mutually_exclusive_group` | 可选 | 互斥完备的若干条目共用一个组 id；`ledger_coherence_lint` 会检查组内概率之和 ≤ 1。**只给真正互斥完备的组打**（"hold vs hike vs cut" 是组，"hold vs hike" 不是——缺了 cut 就不完备） |
 | `notes` | 可选 | 备注 |
+
+## 一致性规则（`--check-coherence`）
+
+登记时必须满足，`python3 scripts/score_predictions.py --check-coherence` 可机械检查：
+
+- **同一极性**：`question`、`scenario`、`resolution_criteria` 必须断言同一事件、同一方向。反例（真实发生过）：question 问"会降息吗？"，scenario 写"按兵不动"，结算标准写"未下调即 true"——审计时读起来是"97% 预测降息"，实际登记的是"97% 预测不降息"。极性颠倒本身的语义无法 100% 机器判定，lint 只抓它的**痕迹**（negated market_ref、组内求和越界）。
+- **嵌套事件单调性**："9 月加息"是"年内加息"的子集，所以 P(年内加息) ≥ P(9 月加息)。登记嵌套事件对时自查。
+- **读数可溯源**：每条 `market_implied` 都要有 `market_ref`。多结果事件（Fed cut 阶梯、strike ladder）里每个子市场是独立价格——你读到的 0.375 可能是"≥4.00%"档而不是"任意加息"，没有 ref 就无法发现。
 
 ## 工作流
 

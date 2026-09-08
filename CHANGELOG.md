@@ -1,17 +1,84 @@
 # Changelog
 
 All notable changes to real-information-analysis are documented here.
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0).
 
-# Changelog
+## [1.3.5] — 2026-09-08
 
-All notable changes to real-information-analysis are documented here.
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Generalization batch from the full-code review of v1.3.4: every finding was
+traced to its *class* (per the repo's own fix-the-class guidance), and each
+class got a mechanical guard where one was possible — three of the four live
+incident signatures now have functions, lints, or canaries that catch them.
 
-# Changelog
+### Fixed
 
-All notable changes to real-information-analysis are documented here.
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+- **Second-pass audit of the 1.3.5 fixes themselves:** three KXFED
+  `market_ref` annotations written during the fix had mislabeled strike
+  legs (the "no cut" entry pointed at T3.75 instead of T3.50, the September
+  hike entry at T4.00 instead of T3.75 — the same semantic-slip class the
+  refs exist to catch). Refs now carry their YES-leg meaning inline
+  (`YES = P(upper bound > X%) = P(...)`) so a mismatch with the quoted
+  price is visible without the ladder in hand. Routing-extractor sentinel
+  test added so over-filtering cannot silently drop hosts from the table.
+- **Ledger polarity incident (predictions/2026-09.jsonl, September FOMC).**
+  One entry asked "会降息吗?" (cut?) while its scenario, resolution criteria
+  and market price all asserted the *no-cut* outcome — it audited as a 97%
+  cut forecast. Question wording corrected (probability/criteria untouched,
+  correction history in `notes`); write-time defences added so the class is
+  caught, not just the instance (see Added).
+- **Nested-event monotonicity violation (same ledger).** "Any hike in 2026"
+  was registered at p=0.38 below "September hike" p=0.45 — impossible, the
+  former contains the latter. Root cause: its `market_implied` 0.375 was the
+  December ≥4.00% strike (two hikes), not the any-hike leg (~0.785 live).
+  Baseline corrected to 0.785 (KXFED-26DEC-T3.75), probability revised
+  0.38 → 0.78 pre-resolution, both recorded in `notes`.
+- `market_by_question()` substring ambiguity: "1 cut" is a substring of
+  "11 cuts", so payload order could silently return the wrong outcome.
+  Exact (case-insensitive) matches now win over substrings.
+- CHANGELOG header had been duplicated three times by the release flow.
+
+### Added
+
+- `scripts/deploy_skill.sh` — deploys the skill as a self-contained bundle
+  (SKILL.md + references/ + the package) to
+  `~/.agents/skills/real-information-analysis`, refusing on version drift
+  and proving the deployed bundle imports from a neutral cwd before
+  declaring success. Closes the deployment gap found in the audit: the
+  skill copy shipped no package, so Step 4 could only execute from the
+  repo working directory, and the manual copy process had already drifted
+  one version behind. SKILL.md Step 4 now states where the package lives
+  (repo root / bundle root) and how to prepend it when running elsewhere.
+  The obsolete `digital-oracle` skill deployment (v1.0.3, pre-rename,
+  missing eight months of fixes) was removed to stop it competing for
+  skill triggers.
+- `scalar_event_consistency()` (interpretation.py, package-root export) —
+  coherence check for multi-outcome events: exclusive outcomes ("exactly N
+  cuts") must sum to ≈1; nested ladders ("above X%") must be non-increasing
+  in X; zero priced legs fails closed. Catches both live misreading shapes
+  (the 92.75% → 5.8% flip and the strike-ladder semantics error).
+- `ledger_coherence_lint()` + `--check-coherence` CLI — write-time defence
+  for the ledger: exclusive-group sums (error), negation-polarity traces via
+  `market_ref` (warning), untraceable `market_implied` (warning). Schema
+  gains optional `market_ref` and `mutually_exclusive_group` fields;
+  predictions/README.md documents the coherence rules.
+- RIA-Bench `submarket-addressing` category with two canary questions (M1
+  polarity flip, M2 ladder semantics) built from the real incident shapes —
+  verified to fail on the incident reports and pass on correct ones.
+- `tests/test_network_routing.py` — every provider host extracted from
+  source must appear in the committed routing table (`direct`/`proxy`), and
+  the local `.zcode/config.json` NO_PROXY must equal the `direct` set.
+  Routing table grew from 10 to 20 hosts (EDGAR's three sec.gov hosts, CFTC,
+  CNN, DuckDuckGo, fiscaldata, fc.yahoo.com were previously unclassified
+  and silently proxied).
+
+### Changed
+
+- SKILL.md multi-outcome addressing rule is now provider-neutral (covers
+  Kalshi `most_active_market()` — same unstable-aggregator pattern as
+  `primary_market()` — via `market_by_ticker`), and references the new
+  consistency check; ledger rules now require same-polarity
+  question/scenario/criteria, `market_ref` on quoted prices, and
+  `mutually_exclusive_group` only for genuinely exhaustive exclusive sets.
 
 ## [1.3.4] — 2026-09-07
 
